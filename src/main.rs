@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{env, fs::File, path::Path};
 
 use gtk4::prelude::*;
 
@@ -10,32 +10,37 @@ fn main() {
 
 fn build_ui(application: &gtk4::Application) {
     let window = gtk4::ApplicationWindow::new(application);
+    window.set_fullscreened(true);
 
-    window.set_title(Some("rlogout"));
-    window.set_default_size(350, 70);
+    // todo: process_args
 
-    // let button = gtk4::Button::with_label("Click me!");
-
-    // window.set_child(Some(&button));
-
-    // process_args
-
-    // get_layout_path
     if !get_layout_path() {
         panic!("Failed to find a layout\n"); // TODO: how to handle error instead of panicking?
     }
 
-    // get_css_path
+    if !get_css_path() {
+        panic!("Failed to find a css file\n"); // TODO: how to handle error instead of panicking?
+    }
 
     // open layout path
+    let home = env::var("HOME");
+    if home.is_err() {
+        panic!("Cannot find home.");
+    }
+    let home = home.unwrap();
+    let layout_path = format!("{home}/.config/wlogout/layout");
+    let mut file = File::open(layout_path.as_str());
+    if file.is_err() {
+        panic!("Failed to open {layout_path}"); // TODO: how to handle error instead of panicking?
+    }
 
-    // get_buttons
+    // todo: get_buttons
 
     window.present();
 }
 
 // process_args
-// need to figure out how to process args
+// todo: figure out how to process args
 
 fn get_layout_path() -> bool {
     let home = env::var("HOME");
@@ -46,6 +51,14 @@ fn get_layout_path() -> bool {
     Path::new(format!("{home}/.config/wlogout/layout").as_str()).exists()
 }
 
-// get_css_path
+fn get_css_path() -> bool {
+    let home = env::var("HOME");
+    if home.is_err() {
+        panic!("Cannot find home.");
+    }
+    let home = home.unwrap();
+    Path::new(format!("{home}/.config/wlogout/style.css").as_str()).exists()
+}
 
 // get_buttons
+// todo: figure out how to process jsonc
