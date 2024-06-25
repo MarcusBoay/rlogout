@@ -1,6 +1,10 @@
-use std::{cell::Cell, env, fs::File, path::Path};
+use std::{cell::Cell, env, fs::File, path::Path, rc::Rc};
 
-use gtk4::{glib, prelude::*, Button, Grid};
+use gtk4::{
+    glib::{self, clone},
+    prelude::*,
+    Button, Grid,
+};
 
 fn main() -> glib::ExitCode {
     // todo: process_args
@@ -39,19 +43,31 @@ fn build_ui(app: &gtk4::Application) {
     window.set_fullscreened(true);
 
     // test area
-    let number = Cell::new(0);
-    let button = Button::builder()
-        .label("Oclick me!!")
+    let number = Rc::new(Cell::new(0));
+    let button_increase = Button::builder()
+        .label("+++")
         .margin_top(12)
         .margin_bottom(12)
         .margin_start(12)
+        .margin_end(500)
+        .build();
+    let button_decrease = Button::builder()
+        .label("---")
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(500)
         .margin_end(12)
         .build();
-    button.connect_clicked(move |_| {
+    button_decrease.connect_clicked(clone!(@strong number => move |_| {
+        number.set(number.get() - 1);
+        println!("clickety!! {}", number.get());
+    }));
+    button_increase.connect_clicked(move |_| {
         number.set(number.get() + 1);
         println!("clickety!! {}", number.get());
     });
-    window.set_child(Some(&button));
+    window.set_child(Some(&button_increase));
+    window.set_child(Some(&button_decrease));
     // test area
 
     window.present();
