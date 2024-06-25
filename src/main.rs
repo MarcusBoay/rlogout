@@ -39,24 +39,21 @@ fn main() -> glib::ExitCode {
 }
 
 fn build_ui(app: &gtk4::Application) {
-    let window = gtk4::ApplicationWindow::new(app);
-    window.set_fullscreened(true);
-
     // test area
     let number = Rc::new(Cell::new(0));
     let button_increase = Button::builder()
         .label("+++")
         .margin_top(12)
         .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(500)
+        .margin_start(50)
+        .margin_end(50)
         .build();
     let button_decrease = Button::builder()
         .label("---")
         .margin_top(12)
         .margin_bottom(12)
-        .margin_start(500)
-        .margin_end(12)
+        .margin_start(50)
+        .margin_end(50)
         .build();
     button_decrease.connect_clicked(clone!(@strong number => move |_| {
         number.set(number.get() - 1);
@@ -66,10 +63,19 @@ fn build_ui(app: &gtk4::Application) {
         number.set(number.get() + 1);
         println!("clickety!! {}", number.get());
     });
-    window.set_child(Some(&button_increase));
-    window.set_child(Some(&button_decrease));
+
+    let gtk_box = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .build();
+    gtk_box.append(&button_increase);
+    gtk_box.append(&button_decrease);
     // test area
 
+    let window = gtk4::ApplicationWindow::builder()
+        .application(app)
+        .child(&gtk_box)
+        .build();
+    window.set_fullscreened(true);
     window.present();
 }
 
