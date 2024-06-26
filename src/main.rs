@@ -13,16 +13,68 @@ use clap::{arg, Parser};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Number of buttons
-    #[arg(short, long, default_value_t = 1)]
-    number_of_buttons: u8,
+    /// Specify a layout file
+    #[arg(short, long)]
+    layout: Option<String>,
+
+    /// Specify a css file
+    #[arg(short = 'C', long)]
+    css: Option<String>,
+
+    /// Set the number of buttons per row
+    #[arg(short, long, default_value_t = 3)]
+    buttons_per_row: u32,
+
+    /// Set space between buttons columns
+    #[arg(short, long, default_value_t = 0)]
+    column_spacing: u32,
+
+    /// Set space between buttons rows
+    #[arg(short, long, default_value_t = 0)]
+    row_spacing: u32,
+
+    /// Set margin around buttons
+    #[arg(short, long)]
+    margin: Option<u32>,
+
+    /// Set margin for left of buttons
+    #[arg(short = 'L', long, default_value_t = 230)]
+    margin_left: u32,
+
+    /// Set margin for right of buttons
+    #[arg(short = 'R', long, default_value_t = 230)]
+    margin_right: u32,
+
+    /// Set margin for right of buttons
+    #[arg(short = 'T', long, default_value_t = 230)]
+    margin_top: u32,
+
+    /// Set margin for right of buttons
+    #[arg(short = 'B', long, default_value_t = 230)]
+    margin_bottom: u32,
+
+    /// Use layer-shell or xdg protocol (todo: ???)
+    #[arg(short, long)]
+    protocol: Option<String>,
+
+    /// Show the keybinds on their corresponding button
+    #[arg(short, long, default_value_t = false)]
+    show_binds: bool,
+
+    /// Stops from spanning across multiple monitors (todo: ???)
+    #[arg(short, long, default_value_t = false)]
+    no_span: bool,
+
+    /// Set the primary monitor
+    #[arg(short = 'P', long)]
+    primary_monitor: Option<u32>,
 }
 
 fn main() -> glib::ExitCode {
     // todo: process_args
     let args = Args::parse();
 
-    println!("number of buttons hehe: {}", args.number_of_buttons);
+    println!("number of buttons hehe: {:?}", args);
 
     if !get_layout_path() {
         panic!("Failed to find a layout\n"); // TODO: how to handle error instead of panicking?
