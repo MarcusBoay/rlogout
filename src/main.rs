@@ -1,9 +1,10 @@
 use std::{cell::Cell, env, fs::File, path::Path, rc::Rc};
 
 use gtk4::{
+    gdk::Display,
     glib::{self, clone},
     prelude::*,
-    Button, Grid,
+    Button, CssProvider, Grid,
 };
 
 fn main() -> glib::ExitCode {
@@ -34,6 +35,7 @@ fn main() -> glib::ExitCode {
     let app = gtk4::Application::builder()
         .application_id("rlogout")
         .build();
+    app.connect_startup(|_| load_css());
     app.connect_activate(build_ui);
     app.run()
 }
@@ -103,6 +105,21 @@ fn get_css_path() -> bool {
 // get_buttons
 // todo: figure out how to process jsonc
 
-fn load_buttons() {
-    let grid = Grid::new();
+fn load_css() {
+    let home = env::var("HOME");
+    if home.is_err() {
+        panic!("Cannot find home.");
+    }
+    let home = home.unwrap();
+    let home = format!("{home}/.config/wlogout/style.css");
+    let provider = CssProvider::new();
+    let path = Path::new(&home);
+    provider.load_from_path(path);
+
+    // Add the provider to the default screen
+    gtk4::style_context_add_provider_for_display(
+        &Display::default().expect("Could not connect to a display."),
+        &provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
