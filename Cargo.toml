@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies.gtk]
 package = "gtk4"
 version = "0.8.2"
-features = ["v4_12"]
+features = ["v4_14"]
