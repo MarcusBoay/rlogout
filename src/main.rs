@@ -1,10 +1,10 @@
 use std::{cell::Cell, env, fs::File, path::Path, rc::Rc};
 
-use gtk4::{
+use gtk::{
     gdk::Display,
     glib::{self, clone},
     prelude::*,
-    Button, CssProvider, Grid,
+    Button, CssProvider,
 };
 
 fn main() -> glib::ExitCode {
@@ -32,7 +32,7 @@ fn main() -> glib::ExitCode {
 
     // todo: get_buttons
 
-    let app = gtk4::Application::builder()
+    let app = gtk::Application::builder()
         .application_id("rlogout")
         .build();
     app.connect_startup(|_| load_css());
@@ -40,7 +40,7 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
-fn build_ui(app: &gtk4::Application) {
+fn build_ui(app: &gtk::Application) {
     // test area
     let number = Rc::new(Cell::new(0));
     let button_increase = Button::builder()
@@ -66,14 +66,14 @@ fn build_ui(app: &gtk4::Application) {
         println!("clickety!! {}", number.get());
     });
 
-    let gtk_box = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Vertical)
+    let gtk_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
         .build();
     gtk_box.append(&button_increase);
     gtk_box.append(&button_decrease);
     // test area
 
-    let window = gtk4::ApplicationWindow::builder()
+    let window = gtk::ApplicationWindow::builder()
         .application(app)
         .child(&gtk_box)
         .build();
@@ -117,9 +117,9 @@ fn load_css() {
     provider.load_from_path(path);
 
     // Add the provider to the default screen
-    gtk4::style_context_add_provider_for_display(
+    gtk::style_context_add_provider_for_display(
         &Display::default().expect("Could not connect to a display."),
         &provider,
-        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 }
