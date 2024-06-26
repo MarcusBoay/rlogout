@@ -7,8 +7,22 @@ use gtk::{
     Button, CssProvider,
 };
 
+use clap::{arg, Parser};
+
+/// Rewrite of wlogout in Rust
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Number of buttons
+    #[arg(short, long, default_value_t = 1)]
+    number_of_buttons: u8,
+}
+
 fn main() -> glib::ExitCode {
     // todo: process_args
+    let args = Args::parse();
+
+    println!("number of buttons hehe: {}", args.number_of_buttons);
 
     if !get_layout_path() {
         panic!("Failed to find a layout\n"); // TODO: how to handle error instead of panicking?
@@ -77,7 +91,7 @@ fn build_ui(app: &gtk::Application) {
         .application(app)
         .child(&gtk_box)
         .build();
-    window.set_fullscreened(true);
+    // window.set_fullscreened(true);
     window.present();
 }
 
