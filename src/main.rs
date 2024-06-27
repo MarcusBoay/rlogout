@@ -34,8 +34,8 @@ struct Args {
     row_spacing: u32,
 
     /// Set margin around buttons
-    #[arg(short, long)]
-    margin: Option<u32>,
+    #[arg(short, long, default_value_t = 0)]
+    margin: u32,
 
     /// Set margin for left of buttons
     #[arg(short = 'L', long, default_value_t = 230)]
@@ -74,8 +74,6 @@ fn main() -> glib::ExitCode {
     // todo: process_args
     let args = Args::parse();
 
-    println!("number of buttons hehe: {:?}", args);
-
     if !get_layout_path() {
         panic!("Failed to find a layout\n"); // TODO: how to handle error instead of panicking?
     }
@@ -102,48 +100,67 @@ fn main() -> glib::ExitCode {
         .application_id("rlogout")
         .build();
     app.connect_startup(|_| load_css());
-    app.connect_activate(build_ui);
+    app.connect_activate(clone!(@weak app => move |_| build_ui(&app, &args)));
     app.run()
 }
 
-fn build_ui(app: &gtk::Application) {
+fn build_ui(app: &gtk::Application, args: &Args) {
     // test area
-    let number = Rc::new(Cell::new(0));
-    let button_increase = Button::builder()
-        .label("+++")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(50)
-        .margin_end(50)
-        .build();
-    let button_decrease = Button::builder()
-        .label("---")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(50)
-        .margin_end(50)
-        .build();
-    button_decrease.connect_clicked(clone!(@strong number => move |_| {
-        number.set(number.get() - 1);
-        println!("clickety!! {}", number.get());
-    }));
-    button_increase.connect_clicked(move |_| {
-        number.set(number.get() + 1);
-        println!("clickety!! {}", number.get());
-    });
+    let button_margin: i32 = args.margin.try_into().unwrap();
+
+    // let number = Rc::new(Cell::new(0));
+    // let button_increase = Button::builder()
+    //     .label("+++")
+    //     .margin_top(button_margin)
+    //     .margin_bottom(button_margin)
+    //     .margin_start(button_margin)
+    //     .margin_end(button_margin)
+    //     .build();
+    // let button_decrease = Button::builder()
+    //     .label("---")
+    //     .margin_top(button_margin)
+    //     .margin_bottom(button_margin)
+    //     .margin_start(button_margin)
+    //     .margin_end(button_margin)
+    //     .build();
+    // button_decrease.connect_clicked(clone!(@strong number => move |_| {
+    //     number.set(number.get() - 1);
+    //     println!("clickety!! {}", number.get());
+    // }));
+    // button_increase.connect_clicked(move |_| {
+    //     number.set(number.get() + 1);
+    //     println!("clickety!! {}", number.get());
+    // });
+
+    let mut buttons: Vec<Button> = vec![];
+    for i in 0..3 {
+        let button = Button::builder()
+            .label(format!("{} {} {} {} {}", i, i, i, i, i))
+            .margin_top(button_margin)
+            .margin_bottom(button_margin)
+            .margin_start(button_margin)
+            .margin_end(button_margin)
+            .build();
+        buttons.push(button);
+    }
 
     let gtk_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
+        .orientation(gtk::Orientation::Horizontal)
+        .margin_top(args.margin_top.try_into().unwrap())
+        .margin_bottom(args.margin_bottom.try_into().unwrap())
+        .margin_start(args.margin_left.try_into().unwrap())
+        .margin_end(args.margin_right.try_into().unwrap())
         .build();
-    gtk_box.append(&button_increase);
-    gtk_box.append(&button_decrease);
+    for button in buttons {
+        gtk_box.append(&button);
+    }
     // test area
 
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .child(&gtk_box)
         .build();
-    // window.set_fullscreened(true);
+    window.set_fullscreened(true);
     window.present();
 }
 
@@ -178,6 +195,7 @@ fn load_css() {
     }
     let home = home.unwrap();
     let home = format!("{home}/.config/wlogout/style.css");
+    // let home = format!("{home}/projects/wlogout/style.css");
     let provider = CssProvider::new();
     let path = Path::new(&home);
     provider.load_from_path(path);
