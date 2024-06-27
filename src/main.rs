@@ -80,6 +80,14 @@ struct Args {
     primary_monitor: Option<u32>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct ButtonData {
+    label: String,
+    action: String,
+    text: String,
+    keybind: String,
+}
+
 fn main() -> glib::ExitCode {
     // todo: process_args
     let args = Args::parse();
@@ -114,32 +122,9 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
-#[derive(Serialize, Deserialize)]
-struct ButtonStuff {
-    // todo: better name
-    label: String,
-    action: String,
-    text: String,
-    keybind: String,
-}
-
 fn build_ui(app: &gtk::Application, args: &Args) {
     // test area
     // let number = Rc::new(Cell::new(0));
-    // let button_increase = Button::builder()
-    //     .label("+++")
-    //     .margin_top(button_margin)
-    //     .margin_bottom(button_margin)
-    //     .margin_start(button_margin)
-    //     .margin_end(button_margin)
-    //     .build();
-    // let button_decrease = Button::builder()
-    //     .label("---")
-    //     .margin_top(button_margin)
-    //     .margin_bottom(button_margin)
-    //     .margin_start(button_margin)
-    //     .margin_end(button_margin)
-    //     .build();
     // button_decrease.connect_clicked(clone!(@strong number => move |_| {
     //     number.set(number.get() - 1);
     //     println!("clickety!! {}", number.get());
@@ -148,26 +133,8 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     //     number.set(number.get() + 1);
     //     println!("clickety!! {}", number.get());
     // });
-    let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
-    let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
-                                                            // end test area
-    let arr = json.as_array().unwrap();
-    for a in arr {
-        let buttonstuff: ButtonStuff = serde_json::from_value(a.clone()).unwrap();
-        println!("hi, {}", buttonstuff.action);
-    }
-    let button_margin: i32 = args.margin.try_into().unwrap();
-    let mut buttons: Vec<Button> = vec![];
-    for i in 0..3 {
-        let button = Button::builder()
-            .label(format!("{} {} {} {} {}", i, i, i, i, i))
-            .margin_top(button_margin)
-            .margin_bottom(button_margin)
-            .margin_start(button_margin)
-            .margin_end(button_margin)
-            .build();
-        buttons.push(button);
-    }
+    // Create buttons
+    let buttons = build_buttons(&args);
 
     let gtk_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -188,9 +155,30 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     window.present();
 }
 
-// process_args
-// todo: figure out how to process args
+// todo: get actual layout path
+fn build_buttons(args: &Args) -> Vec<Button> {
+    let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
+    let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
+                                                            // end test area
+    let json = json.as_array().unwrap();
+    let margin: i32 = args.margin.try_into().unwrap();
+    let mut buttons: Vec<Button> = vec![];
+    for button_json in json {
+        let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap(); // todo: handle error properly
+        let button: Button = Button::builder()
+            .name(button_data.label)
+            .label(button_data.text)
+            .margin_top(margin)
+            .margin_bottom(margin)
+            .margin_start(margin)
+            .margin_end(margin)
+            .build();
+        buttons.push(button);
+    }
+    buttons
+}
 
+// todo: fix this nonsense
 fn get_layout_path() -> bool {
     let home = env::var("HOME");
     if home.is_err() {
@@ -200,6 +188,7 @@ fn get_layout_path() -> bool {
     Path::new(format!("{home}/.config/wlogout/layout").as_str()).exists()
 }
 
+// todo: fix this nonsense
 fn get_css_path() -> bool {
     let home = env::var("HOME");
     if home.is_err() {
@@ -209,9 +198,7 @@ fn get_css_path() -> bool {
     Path::new(format!("{home}/.config/wlogout/style.css").as_str()).exists()
 }
 
-// get_buttons
-// todo: figure out how to process json
-
+// todo: clean up this nonsense
 fn load_css() {
     let home = env::var("HOME");
     if home.is_err() {
@@ -219,7 +206,7 @@ fn load_css() {
     }
     let home = home.unwrap();
     let home = format!("{home}/.config/wlogout/style.css");
-    // let home = format!("{home}/projects/wlogout/style.css");
+    // let home = format!("style.css");
     let provider = CssProvider::new();
     let path = Path::new(&home);
     provider.load_from_path(path);
