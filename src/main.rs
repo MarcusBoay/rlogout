@@ -1,4 +1,11 @@
-use std::{cell::Cell, env, fs::File, path::Path, rc::Rc};
+use std::{
+    cell::Cell,
+    env,
+    fs::File,
+    io::{BufReader, Read},
+    path::Path,
+    rc::Rc,
+};
 
 use gtk::{
     gdk::Display,
@@ -8,6 +15,9 @@ use gtk::{
 };
 
 use clap::{arg, Parser};
+
+use serde::{Deserialize, Serialize};
+use serde_json::{self, Value};
 
 /// Rewrite of wlogout in Rust
 #[derive(Parser, Debug)]
@@ -104,10 +114,17 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
+#[derive(Serialize, Deserialize)]
+struct ButtonStuff {
+    // todo: better name
+    label: String,
+    action: String,
+    text: String,
+    keybind: String,
+}
+
 fn build_ui(app: &gtk::Application, args: &Args) {
     // test area
-    let button_margin: i32 = args.margin.try_into().unwrap();
-
     // let number = Rc::new(Cell::new(0));
     // let button_increase = Button::builder()
     //     .label("+++")
@@ -131,7 +148,15 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     //     number.set(number.get() + 1);
     //     println!("clickety!! {}", number.get());
     // });
-
+    let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
+    let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
+                                                            // end test area
+    let arr = json.as_array().unwrap();
+    for a in arr {
+        let buttonstuff: ButtonStuff = serde_json::from_value(a.clone()).unwrap();
+        println!("hi, {}", buttonstuff.action);
+    }
+    let button_margin: i32 = args.margin.try_into().unwrap();
     let mut buttons: Vec<Button> = vec![];
     for i in 0..3 {
         let button = Button::builder()
@@ -154,7 +179,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     for button in buttons {
         gtk_box.append(&button);
     }
-    // test area
 
     let window = gtk::ApplicationWindow::builder()
         .application(app)
@@ -186,7 +210,7 @@ fn get_css_path() -> bool {
 }
 
 // get_buttons
-// todo: figure out how to process jsonc
+// todo: figure out how to process json
 
 fn load_css() {
     let home = env::var("HOME");
