@@ -119,7 +119,8 @@ fn main() -> glib::ExitCode {
         .build();
     app.connect_startup(|_| load_css());
     app.connect_activate(clone!(@weak app => move |_| build_ui(&app, &args)));
-    app.run()
+    let empty: Vec<String> = vec![];
+    app.run_with_args(&empty) // workaround to make clap parse arguments
 }
 
 fn build_ui(app: &gtk::Application, args: &Args) {
