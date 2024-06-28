@@ -136,15 +136,22 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     // Create buttons
     let buttons = build_buttons(&args);
 
-    let gtk_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
+    let grid = gtk::Grid::builder()
         .margin_top(args.margin_top.try_into().unwrap())
         .margin_bottom(args.margin_bottom.try_into().unwrap())
         .margin_start(args.margin_left.try_into().unwrap())
         .margin_end(args.margin_right.try_into().unwrap())
         .build();
-    for button in buttons {
-        gtk_box.append(&button);
+
+    let gtk_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .build();
+    gtk_box.append(&grid);
+    for j in 0..3 {
+        // fixme: why does this not create more buttons in row?
+        for (i, button) in buttons.iter().enumerate() {
+            grid.attach(button, i.try_into().unwrap(), j.try_into().unwrap(), 1, 1);
+        }
     }
 
     let window = gtk::ApplicationWindow::builder()
@@ -172,7 +179,10 @@ fn build_buttons(args: &Args) -> Vec<Button> {
             .margin_bottom(margin)
             .margin_start(margin)
             .margin_end(margin)
+            .hexpand(true)
+            .vexpand(true)
             .build();
+        // todo: command for button
         buttons.push(button);
     }
     buttons
