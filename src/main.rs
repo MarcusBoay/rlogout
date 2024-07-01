@@ -68,7 +68,7 @@ struct Args {
 
     /// Show the keybinds on their corresponding button
     #[arg(short, long, default_value_t = false)]
-    show_binds: bool, // todo
+    show_binds: bool,
 
     /// Stops from spanning across multiple monitors
     #[arg(short, long, default_value_t = false)]
@@ -183,9 +183,14 @@ fn build_buttons(app: &gtk::Application, args: &Args) -> Vec<Button> {
     let mut buttons: Vec<Button> = vec![];
     for button_json in json {
         let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap(); // todo: handle error properly
+        let label_text = if args.show_binds {
+            button_data.text + "[" + &button_data.keybind + "]"
+        } else {
+            button_data.text
+        };
         let button: Button = Button::builder()
             .name(button_data.label)
-            .label(button_data.text)
+            .label(label_text)
             .margin_top(margin)
             .margin_bottom(margin)
             .margin_start(margin)
