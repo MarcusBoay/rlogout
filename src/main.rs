@@ -147,7 +147,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .build();
     gtk_box.append(&grid);
 
-    let buttons = build_buttons(&args);
+    let buttons = build_buttons(&app, &args);
     let mut i: u32 = 0; // row
     loop {
         let mut break_out = false;
@@ -175,7 +175,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
 }
 
 // todo: get actual layout path
-fn build_buttons(args: &Args) -> Vec<Button> {
+fn build_buttons(app: &gtk::Application, args: &Args) -> Vec<Button> {
     let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
     let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
     let json = json.as_array().unwrap();
@@ -193,7 +193,7 @@ fn build_buttons(args: &Args) -> Vec<Button> {
             .hexpand(true)
             .vexpand(true)
             .build();
-        button.connect_clicked(move |_| {
+        button.connect_clicked(clone!(@weak app => move |_| {
             let output = Command::new("sh")
                 .arg("-c")
                 .arg(&button_data.action)
@@ -201,7 +201,8 @@ fn build_buttons(args: &Args) -> Vec<Button> {
                 .expect("failed to execute process");
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
-        });
+            app.quit();
+        }));
         buttons.push(button);
     }
     buttons
