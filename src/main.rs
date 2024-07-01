@@ -112,8 +112,6 @@ fn main() -> glib::ExitCode {
         panic!("Failed to open {layout_path}"); // TODO: how to handle error instead of panicking?
     }
 
-    // todo: get_buttons
-
     let app = gtk::Application::builder()
         .application_id("rlogout")
         .build();
@@ -135,7 +133,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     //     println!("clickety!! {}", number.get());
     // });
     // Create buttons
-    let buttons = build_buttons(&args);
 
     let grid = gtk::Grid::builder()
         .margin_top(args.margin_top.try_into().unwrap())
@@ -148,11 +145,24 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     gtk_box.append(&grid);
-    for j in 0..3 {
-        // fixme: why does this not create more buttons in row?
-        for (i, button) in buttons.iter().enumerate() {
-            grid.attach(button, i.try_into().unwrap(), j.try_into().unwrap(), 1, 1);
+
+    let buttons = build_buttons(&args);
+    let mut i: u32 = 0; // row
+    loop {
+        let mut break_out = false;
+        for j in 0..args.buttons_per_row {
+            let k: usize = (i * args.buttons_per_row + j).try_into().unwrap();
+            if k >= buttons.len() {
+                break_out = true;
+                break;
+            }
+            let button = &buttons[k];
+            grid.attach(button, j.try_into().unwrap(), i.try_into().unwrap(), 1, 1);
         }
+        if break_out {
+            break;
+        }
+        i += 1;
     }
 
     let window = gtk::ApplicationWindow::builder()
