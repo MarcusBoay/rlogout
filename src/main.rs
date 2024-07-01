@@ -25,11 +25,11 @@ use serde_json::{self, Value};
 struct Args {
     /// Specify a layout file
     #[arg(short, long)]
-    layout: Option<String>,
+    layout: Option<String>, // todo
 
     /// Specify a css file
     #[arg(short = 'C', long)]
-    css: Option<String>,
+    css: Option<String>, // todo
 
     /// Set the number of buttons per row
     #[arg(short, long, default_value_t = 3)]
@@ -63,21 +63,21 @@ struct Args {
     #[arg(short = 'B', long, default_value_t = 230)]
     margin_bottom: u32,
 
-    /// Use layer-shell or xdg protocol (todo: ???)
+    /// Use layer-shell or xdg protocol
     #[arg(short, long)]
-    protocol: Option<String>,
+    protocol: Option<String>, // todo
 
     /// Show the keybinds on their corresponding button
     #[arg(short, long, default_value_t = false)]
-    show_binds: bool,
+    show_binds: bool, // todo
 
-    /// Stops from spanning across multiple monitors (todo: ???)
+    /// Stops from spanning across multiple monitors
     #[arg(short, long, default_value_t = false)]
-    no_span: bool,
+    no_span: bool, // todo
 
     /// Set the primary monitor
     #[arg(short = 'P', long)]
-    primary_monitor: Option<u32>,
+    primary_monitor: Option<u32>, // todo
 }
 
 #[derive(Serialize, Deserialize)]
@@ -139,6 +139,8 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .margin_bottom(args.margin_bottom.try_into().unwrap())
         .margin_start(args.margin_left.try_into().unwrap())
         .margin_end(args.margin_right.try_into().unwrap())
+        .row_spacing(args.row_spacing.try_into().unwrap())
+        .column_spacing(args.column_spacing.try_into().unwrap())
         .build();
 
     let gtk_box = gtk::Box::builder()
