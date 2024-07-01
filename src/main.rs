@@ -183,7 +183,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             .hexpand(true)
             .vexpand(true)
             .build();
-        button.connect_clicked(clone!(@weak app => move |_| {
+        let action_fn = Rc::new(move |app: &gtk::Application| {
             let output = Command::new("sh")
                 .arg("-c")
                 .arg(&button_data.action)
@@ -192,18 +192,13 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
             app.quit();
-        }));
+        });
+        let action_fn_clone = action_fn.clone();
+        button.connect_clicked(clone!(@weak app => move |_| action_fn(&app)));
         let key_event = gtk::EventControllerKey::new();
         key_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
             if key.name().is_some_and(|k| k == btn.keybind) {
-                let output = Command::new("sh")
-                    .arg("-c")
-                    .arg(&btn.action)
-                    .output()
-                    .expect("failed to execute process");
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
-                app.quit();
+                action_fn_clone(&app);
             }
         }));
         gtk_box.add_controller(key_event);
@@ -215,26 +210,26 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
 
 fn get_config_path(
     file: &str,
-    config_file: &Option<String>,
+    config_path: &Option<String>,
     err_text: &'static str,
 ) -> Result<String, &'static str> {
     let xdg_config_home = env::var("XDG_CONFIG_HOME");
-    let mut config_path = String::new();
+    let mut default_config_path = String::new();
     if xdg_config_home.is_err() {
         let home = env::var("HOME");
         if home.is_err() {
             return Err("Cannot find environment variable: HOME");
         }
-        config_path = home.unwrap() + "/.config";
+        default_config_path = home.unwrap() + "/.config";
     }
-    config_path = config_path + "/rlogout/" + file;
+    default_config_path = default_config_path + "/rlogout/" + file;
 
-    if config_file.is_some()
-        && Path::new(format!("{}", &config_file.as_ref().unwrap()).as_str()).exists()
+    if config_path.is_some()
+        && Path::new(format!("{}", &config_path.as_ref().unwrap()).as_str()).exists()
     {
-        Ok(config_file.clone().unwrap())
-    } else if Path::new(&config_path).exists() {
-        Ok(config_path)
+        Ok(config_path.clone().unwrap())
+    } else if Path::new(&default_config_path).exists() {
+        Ok(default_config_path)
     } else if Path::new(&format!("/etc/rlogout/{}", &file)).exists() {
         Ok(String::from(&format!("/etc/rlogout/{}", &file)))
     } else if Path::new(&format!("/usr/local/etc/rlogout/{}", &file)).exists() {
