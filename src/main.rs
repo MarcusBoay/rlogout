@@ -79,7 +79,7 @@ struct Args {
     primary_monitor: Option<u32>, // todo
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct ButtonData {
     label: String,
     action: String,
@@ -121,18 +121,6 @@ fn main() -> glib::ExitCode {
 }
 
 fn build_ui(app: &gtk::Application, args: &Args) {
-    // test area
-    // let number = Rc::new(Cell::new(0));
-    // button_decrease.connect_clicked(clone!(@strong number => move |_| {
-    //     number.set(number.get() - 1);
-    //     println!("clickety!! {}", number.get());
-    // }));
-    // button_increase.connect_clicked(move |_| {
-    //     number.set(number.get() + 1);
-    //     println!("clickety!! {}", number.get());
-    // });
-    // Create buttons
-
     let grid = gtk::Grid::builder()
         .margin_top(args.margin_top.try_into().unwrap())
         .margin_bottom(args.margin_bottom.try_into().unwrap())
@@ -146,8 +134,21 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     gtk_box.append(&grid);
+    let gesture = gtk::GestureClick::new();
+    gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
+        gesture.set_state(gtk::EventSequenceState::Claimed);
+        app.quit();
+    }));
+    gtk_box.add_controller(gesture);
+    let esc_event = gtk::EventControllerKey::new();
+    esc_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
+        if key.name().is_some_and(|k| k == "Escape") {
+            app.quit();
+        }
+    }));
+    gtk_box.add_controller(esc_event);
 
-    let buttons = build_buttons(&app, &args);
+    let buttons = build_buttons(&app, &gtk_box, &args);
     let mut i: u32 = 0; // row
     loop {
         let mut break_out = false;
@@ -175,7 +176,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
 }
 
 // todo: get actual layout path
-fn build_buttons(app: &gtk::Application, args: &Args) -> Vec<Button> {
+fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<Button> {
     let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
     let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
     let json = json.as_array().unwrap();
@@ -183,6 +184,7 @@ fn build_buttons(app: &gtk::Application, args: &Args) -> Vec<Button> {
     let mut buttons: Vec<Button> = vec![];
     for button_json in json {
         let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap(); // todo: handle error properly
+        let btn = button_data.clone();
         let label_text = if args.show_binds {
             button_data.text + "[" + &button_data.keybind + "]"
         } else {
@@ -208,6 +210,21 @@ fn build_buttons(app: &gtk::Application, args: &Args) -> Vec<Button> {
             io::stderr().write_all(&output.stderr).unwrap();
             app.quit();
         }));
+        let key_event = gtk::EventControllerKey::new();
+        key_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
+            if key.name().is_some_and(|k| k == btn.keybind) {
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(&btn.action)
+                    .output()
+                    .expect("failed to execute process");
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                app.quit();
+            }
+        }));
+        gtk_box.add_controller(key_event);
+
         buttons.push(button);
     }
     buttons
