@@ -18,6 +18,7 @@ pkgs.mkShell {
     rust
   ] ++ (with pkgs; [
     pkg-config
+    clippy
     # other dependencies
     glib
     gtk4

@@ -167,14 +167,14 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
     let mut buttons: Vec<Button> = vec![];
     for button_json in json {
         let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap(); // todo: handle error properly
-        let btn = button_data.clone();
+        let button_data_clone = button_data.clone();
         let label_text = if args.show_binds {
             button_data.text + "[" + &button_data.keybind + "]"
         } else {
             button_data.text
         };
         let button: Button = Button::builder()
-            .name(button_data.label)
+            .name(button_data.label.clone())
             .label(label_text)
             .margin_top(margin)
             .margin_bottom(margin)
@@ -182,6 +182,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             .margin_end(margin)
             .hexpand(true)
             .vexpand(true)
+            // .css_name(button_data.label)
             .build();
         let action_fn = Rc::new(move |app: &gtk::Application| {
             let output = Command::new("sh")
@@ -197,7 +198,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
         button.connect_clicked(clone!(@weak app => move |_| action_fn(&app)));
         let key_event = gtk::EventControllerKey::new();
         key_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
-            if key.name().is_some_and(|k| k == btn.keybind) {
+            if key.name().is_some_and(|k| k == button_data_clone.keybind) {
                 action_fn_clone(&app);
             }
         }));
