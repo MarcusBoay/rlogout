@@ -1,10 +1,9 @@
 use std::{
-    cell::Cell,
     env,
     fs::File,
-    io::{BufReader, Read},
+    io::{self, Write},
     path::Path,
-    rc::Rc,
+    process::Command,
 };
 
 use gtk::{
@@ -179,7 +178,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
 fn build_buttons(args: &Args) -> Vec<Button> {
     let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
     let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
-                                                            // end test area
     let json = json.as_array().unwrap();
     let margin: i32 = args.margin.try_into().unwrap();
     let mut buttons: Vec<Button> = vec![];
@@ -195,7 +193,15 @@ fn build_buttons(args: &Args) -> Vec<Button> {
             .hexpand(true)
             .vexpand(true)
             .build();
-        // todo: command for button
+        button.connect_clicked(move |_| {
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(&button_data.action)
+                .output()
+                .expect("failed to execute process");
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+        });
         buttons.push(button);
     }
     buttons
