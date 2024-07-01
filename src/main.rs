@@ -24,11 +24,11 @@ use serde_json::{self, Value};
 struct Args {
     /// Specify a layout file
     #[arg(short, long)]
-    layout: Option<String>, // todo
+    layout: Option<String>,
 
     /// Specify a css file
     #[arg(short = 'C', long)]
-    css: Option<String>, // todo
+    css: Option<String>,
 
     /// Set the number of buttons per row
     #[arg(short, long, default_value_t = 3)]
@@ -88,39 +88,30 @@ struct ButtonData {
 }
 
 fn main() -> glib::ExitCode {
-    // todo: process_args
     let args = Args::parse();
 
-    if !get_layout_path() {
-        panic!("Failed to find a layout\n"); // TODO: how to handle error instead of panicking?
-    }
+    let layout_path = get_layout_path(&args);
+    let layout_path = match layout_path {
+        Ok(layout_path) => layout_path,
+        _ => panic!("{}\n", layout_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+    };
 
-    if !get_css_path() {
-        panic!("Failed to find a css file\n"); // TODO: how to handle error instead of panicking?
-    }
-
-    // open layout path
-    let home = env::var("HOME");
-    if home.is_err() {
-        panic!("Cannot find home.");
-    }
-    let home = home.unwrap();
-    let layout_path = format!("{home}/.config/wlogout/layout");
-    let mut file = File::open(layout_path.as_str());
-    if file.is_err() {
-        panic!("Failed to open {layout_path}"); // TODO: how to handle error instead of panicking?
-    }
+    let css_path = get_css_path(&args);
+    let css_path = match css_path {
+        Ok(css_path) => css_path,
+        _ => panic!("{}\n", css_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+    };
 
     let app = gtk::Application::builder()
         .application_id("rlogout")
         .build();
-    app.connect_startup(|_| load_css());
-    app.connect_activate(clone!(@weak app => move |_| build_ui(&app, &args)));
+    app.connect_startup(move |_| load_css(&css_path));
+    app.connect_activate(clone!(@weak app => move |_| build_ui(&app, &args, &layout_path)));
     let empty: Vec<String> = vec![];
     app.run_with_args(&empty) // workaround to make clap parse arguments
 }
 
-fn build_ui(app: &gtk::Application, args: &Args) {
+fn build_ui(app: &gtk::Application, args: &Args, layout_path: &String) {
     let grid = gtk::Grid::builder()
         .margin_top(args.margin_top.try_into().unwrap())
         .margin_bottom(args.margin_bottom.try_into().unwrap())
@@ -148,7 +139,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     }));
     gtk_box.add_controller(esc_event);
 
-    let buttons = build_buttons(&app, &gtk_box, &args);
+    let buttons = build_buttons(&app, &gtk_box, &args, layout_path);
     let mut i: u32 = 0; // row
     loop {
         let mut break_out = false;
@@ -175,9 +166,13 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     window.present();
 }
 
-// todo: get actual layout path
-fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<Button> {
-    let json = std::fs::read_to_string("layout.json").unwrap(); // todo: handle error properly
+fn build_buttons(
+    app: &gtk::Application,
+    gtk_box: &gtk::Box,
+    args: &Args,
+    layout_path: &String,
+) -> Vec<Button> {
+    let json = std::fs::read_to_string(layout_path).unwrap(); // todo: handle error properly
     let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
     let json = json.as_array().unwrap();
     let margin: i32 = args.margin.try_into().unwrap();
@@ -230,37 +225,48 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
     buttons
 }
 
-// todo: fix this nonsense
-fn get_layout_path() -> bool {
-    let home = env::var("HOME");
-    if home.is_err() {
-        panic!("Cannot find home.");
+fn get_config_path(
+    file: &str,
+    config_file: &Option<String>,
+    err_text: &'static str,
+) -> Result<String, &'static str> {
+    let xdg_config_home = env::var("XDG_CONFIG_HOME");
+    let mut config_path = String::new();
+    if xdg_config_home.is_err() {
+        let home = env::var("HOME");
+        if home.is_err() {
+            return Err("Cannot find environment variable: HOME");
+        }
+        config_path = home.unwrap() + "/.config";
     }
-    let home = home.unwrap();
-    Path::new(format!("{home}/.config/wlogout/layout").as_str()).exists()
+    config_path = config_path + "/rlogout/" + file;
+
+    if config_file.is_some()
+        && Path::new(format!("{}", &config_file.as_ref().unwrap()).as_str()).exists()
+    {
+        Ok(config_file.clone().unwrap())
+    } else if Path::new(&config_path).exists() {
+        Ok(config_path)
+    } else if Path::new("/etc/rlogout/layout").exists() {
+        Ok(String::from("/etc/rlogout/layout"))
+    } else if Path::new("/usr/local/etc/rlogout/layout").exists() {
+        Ok(String::from("/usr/local/etc/rlogout/layout"))
+    } else {
+        Err(err_text)
+    }
 }
 
-// todo: fix this nonsense
-fn get_css_path() -> bool {
-    let home = env::var("HOME");
-    if home.is_err() {
-        panic!("Cannot find home.");
-    }
-    let home = home.unwrap();
-    Path::new(format!("{home}/.config/wlogout/style.css").as_str()).exists()
+fn get_layout_path(args: &Args) -> Result<String, &'static str> {
+    get_config_path("layout.json", &args.layout, "Failed to find a layout")
 }
 
-// todo: clean up this nonsense
-fn load_css() {
-    let home = env::var("HOME");
-    if home.is_err() {
-        panic!("Cannot find home.");
-    }
-    let home = home.unwrap();
-    let home = format!("{home}/.config/wlogout/style.css");
-    // let home = format!("style.css");
+fn get_css_path(args: &Args) -> Result<String, &'static str> {
+    get_config_path("style.css", &args.css, "Failed to find css file")
+}
+
+fn load_css(css_path: &String) {
     let provider = CssProvider::new();
-    let path = Path::new(&home);
+    let path = Path::new(&css_path);
     provider.load_from_path(path);
 
     // Add the provider to the default screen
