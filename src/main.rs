@@ -1,9 +1,9 @@
 use std::{
     env,
-    fs::File,
     io::{self, Write},
     path::Path,
     process::Command,
+    rc::Rc,
 };
 
 use gtk::{
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 
 /// Rewrite of wlogout in Rust
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Specify a layout file
@@ -88,30 +88,18 @@ struct ButtonData {
 }
 
 fn main() -> glib::ExitCode {
-    let args = Args::parse();
-
-    let layout_path = get_layout_path(&args);
-    let layout_path = match layout_path {
-        Ok(layout_path) => layout_path,
-        _ => panic!("{}\n", layout_path.unwrap_err()), // TODO: how to handle error instead of panicking?
-    };
-
-    let css_path = get_css_path(&args);
-    let css_path = match css_path {
-        Ok(css_path) => css_path,
-        _ => panic!("{}\n", css_path.unwrap_err()), // TODO: how to handle error instead of panicking?
-    };
+    let args = Rc::new(Args::parse());
 
     let app = gtk::Application::builder()
         .application_id("rlogout")
         .build();
-    app.connect_startup(move |_| load_css(&css_path));
-    app.connect_activate(clone!(@weak app => move |_| build_ui(&app, &args, &layout_path)));
+    app.connect_startup(clone!(@strong args => move |_| load_css(&args)));
+    app.connect_activate(clone!(@weak app, @strong args => move |_| build_ui(&app, &args)));
     let empty: Vec<String> = vec![];
     app.run_with_args(&empty) // workaround to make clap parse arguments
 }
 
-fn build_ui(app: &gtk::Application, args: &Args, layout_path: &String) {
+fn build_ui(app: &gtk::Application, args: &Args) {
     let grid = gtk::Grid::builder()
         .margin_top(args.margin_top.try_into().unwrap())
         .margin_bottom(args.margin_bottom.try_into().unwrap())
@@ -139,7 +127,7 @@ fn build_ui(app: &gtk::Application, args: &Args, layout_path: &String) {
     }));
     gtk_box.add_controller(esc_event);
 
-    let buttons = build_buttons(&app, &gtk_box, &args, layout_path);
+    let buttons = build_buttons(&app, &gtk_box, &args);
     let mut i: u32 = 0; // row
     loop {
         let mut break_out = false;
@@ -166,12 +154,12 @@ fn build_ui(app: &gtk::Application, args: &Args, layout_path: &String) {
     window.present();
 }
 
-fn build_buttons(
-    app: &gtk::Application,
-    gtk_box: &gtk::Box,
-    args: &Args,
-    layout_path: &String,
-) -> Vec<Button> {
+fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<Button> {
+    let layout_path = get_layout_path(&args);
+    let layout_path = match layout_path {
+        Ok(layout_path) => layout_path,
+        _ => panic!("{}\n", layout_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+    };
     let json = std::fs::read_to_string(layout_path).unwrap(); // todo: handle error properly
     let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
     let json = json.as_array().unwrap();
@@ -247,10 +235,10 @@ fn get_config_path(
         Ok(config_file.clone().unwrap())
     } else if Path::new(&config_path).exists() {
         Ok(config_path)
-    } else if Path::new("/etc/rlogout/layout").exists() {
-        Ok(String::from("/etc/rlogout/layout"))
-    } else if Path::new("/usr/local/etc/rlogout/layout").exists() {
-        Ok(String::from("/usr/local/etc/rlogout/layout"))
+    } else if Path::new(&format!("/etc/rlogout/{}", &file)).exists() {
+        Ok(String::from(&format!("/etc/rlogout/{}", &file)))
+    } else if Path::new(&format!("/usr/local/etc/rlogout/{}", &file)).exists() {
+        Ok(String::from(&format!("/usr/local/etc/rlogout/{}", &file)))
     } else {
         Err(err_text)
     }
@@ -264,7 +252,12 @@ fn get_css_path(args: &Args) -> Result<String, &'static str> {
     get_config_path("style.css", &args.css, "Failed to find css file")
 }
 
-fn load_css(css_path: &String) {
+fn load_css(args: &Args) {
+    let css_path = get_css_path(&args);
+    let css_path = match css_path {
+        Ok(css_path) => css_path,
+        _ => panic!("{}\n", css_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+    };
     let provider = CssProvider::new();
     let path = Path::new(&css_path);
     provider.load_from_path(path);
