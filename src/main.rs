@@ -10,7 +10,7 @@ use gtk::{
     gdk::Display,
     glib::{self, clone},
     prelude::*,
-    Button, CssProvider,
+    Button, CssProvider, Label,
 };
 
 use clap::{arg, Parser};
@@ -113,6 +113,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     gtk_box.append(&grid);
+    // Build action to quit out of appliction of click/esc key press
     let gesture = gtk::GestureClick::new();
     gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
         gesture.set_state(gtk::EventSequenceState::Claimed);
@@ -127,6 +128,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     }));
     gtk_box.add_controller(esc_event);
 
+    // Place buttons on grid
     let buttons = build_buttons(&app, &gtk_box, &args);
     let mut i: u32 = 0; // row
     loop {
@@ -158,32 +160,41 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
     let layout_path = get_layout_path(&args);
     let layout_path = match layout_path {
         Ok(layout_path) => layout_path,
-        _ => panic!("{}\n", layout_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+        _ => panic!("{}\n", layout_path.unwrap_err()),
     };
-    let json = std::fs::read_to_string(layout_path).unwrap(); // todo: handle error properly
-    let json: Value = serde_json::from_str(&json).unwrap(); // todo: handle error properly
+    let json = std::fs::read_to_string(layout_path).unwrap();
+    let json: Value = serde_json::from_str(&json).unwrap();
     let json = json.as_array().unwrap();
+
     let margin: i32 = args.margin.try_into().unwrap();
     let mut buttons: Vec<Button> = vec![];
     for button_json in json {
-        let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap(); // todo: handle error properly
+        let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap();
         let button_data_clone = button_data.clone();
+
         let label_text = if args.show_binds {
             button_data.text + "[" + &button_data.keybind + "]"
         } else {
             button_data.text
         };
-        let button: Button = Button::builder()
+
+        let button = Button::builder()
             .name(button_data.label.clone())
-            .label(label_text)
             .margin_top(margin)
             .margin_bottom(margin)
             .margin_start(margin)
             .margin_end(margin)
             .hexpand(true)
             .vexpand(true)
-            // .css_name(button_data.label)
             .build();
+        let label = Label::builder()
+            .label(label_text)
+            .xalign(0.5)
+            .yalign(0.9)
+            .build();
+        button.set_child(Some(&label));
+
+        // Build action for clicking/key press
         let action_fn = Rc::new(move |app: &gtk::Application| {
             let output = Command::new("sh")
                 .arg("-c")
@@ -252,7 +263,7 @@ fn load_css(args: &Args) {
     let css_path = get_css_path(&args);
     let css_path = match css_path {
         Ok(css_path) => css_path,
-        _ => panic!("{}\n", css_path.unwrap_err()), // TODO: how to handle error instead of panicking?
+        _ => panic!("{}\n", css_path.unwrap_err()),
     };
     let provider = CssProvider::new();
     let path = Path::new(&css_path);
@@ -262,6 +273,6 @@ fn load_css(args: &Args) {
     gtk::style_context_add_provider_for_display(
         &Display::default().expect("Could not connect to a display."),
         &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        gtk::STYLE_PROVIDER_PRIORITY_USER,
     );
 }
