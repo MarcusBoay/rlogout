@@ -14,6 +14,7 @@ use gtk::{
 
 use clap::{arg, Parser};
 
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 
@@ -151,8 +152,20 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .child(&gtk_box)
+        .decorated(false)
         .build();
-    window.set_fullscreened(true);
+    if gtk4_layer_shell::is_supported() {
+        window.init_layer_shell();
+        window.set_layer(Layer::Overlay);
+        window.set_namespace("rlogout_dialog");
+        window.set_anchor(Edge::Left, true);
+        window.set_anchor(Edge::Top, true);
+        window.set_anchor(Edge::Right, true);
+        window.set_anchor(Edge::Bottom, true);
+        window.set_keyboard_mode(KeyboardMode::Exclusive);
+    } else {
+        window.set_fullscreened(true);
+    }
     window.present();
 }
 

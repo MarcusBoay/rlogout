@@ -24,6 +24,7 @@ pkgs.mkShell {
     gtk4
     pango
     wrapGAppsHook
+    gtk4-layer-shell
   ]);
   RUST_BACKTRACE = 1;
   RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
