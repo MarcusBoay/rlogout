@@ -88,6 +88,7 @@ struct ButtonData {
 
 fn main() -> glib::ExitCode {
     let args = Rc::new(Args::parse());
+    assert!(args.buttons_per_row > 0, "buttons_per_row must be > 0!");
 
     let app = gtk::Application::builder()
         .application_id("rlogout")
