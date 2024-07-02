@@ -10,7 +10,6 @@ use gtk::{
     gdk::Display,
     glib::{self, clone},
     prelude::*,
-    Button, CssProvider, Label,
 };
 
 use clap::{arg, Parser};
@@ -156,7 +155,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     window.present();
 }
 
-fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<Button> {
+fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<gtk::Button> {
     let layout_path = get_layout_path(&args);
     let layout_path = match layout_path {
         Ok(layout_path) => layout_path,
@@ -167,7 +166,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
     let json = json.as_array().unwrap();
 
     let margin: i32 = args.margin.try_into().unwrap();
-    let mut buttons: Vec<Button> = vec![];
+    let mut buttons: Vec<gtk::Button> = vec![];
     for button_json in json {
         let button_data: ButtonData = serde_json::from_value(button_json.clone()).unwrap();
         let button_data_clone = button_data.clone();
@@ -178,7 +177,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             button_data.text
         };
 
-        let button = Button::builder()
+        let button = gtk::Button::builder()
             .name(button_data.label.clone())
             .margin_top(margin)
             .margin_bottom(margin)
@@ -187,7 +186,7 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             .hexpand(true)
             .vexpand(true)
             .build();
-        let label = Label::builder()
+        let label = gtk::Label::builder()
             .label(label_text)
             .xalign(0.5)
             .yalign(0.9)
@@ -265,7 +264,7 @@ fn load_css(args: &Args) {
         Ok(css_path) => css_path,
         _ => panic!("{}\n", css_path.unwrap_err()),
     };
-    let provider = CssProvider::new();
+    let provider = gtk::CssProvider::new();
     let path = Path::new(&css_path);
     provider.load_from_path(path);
 
