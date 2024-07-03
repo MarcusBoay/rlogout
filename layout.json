@@ -9,18 +9,24 @@
         "label": "logout",
         "action": "loginctl terminate-user $USER",
         "text": "Logout",
-        "keybind": "e"
+        "keybind": "e",
+        "label_x_align": 0.1,
+        "label_y_align": 0.1
     },
     {
         "label": "reboot",
         "action": "systemctl reboot",
         "text": "Reboot",
-        "keybind": "r"
+        "keybind": "r",
+        "label_x_align": 0.5,
+        "label_y_align": 0.5
     },
     {
         "label": "shutdown",
         "action": "systemctl poweroff",
         "text": "Shutdown",
-        "keybind": "s"
+        "keybind": "s",
+        "label_x_align": 1.0,
+        "label_y_align": 1.0
     }
 ]

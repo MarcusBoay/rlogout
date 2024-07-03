@@ -64,7 +64,7 @@ struct Args {
 
     /// Use layer-shell or xdg protocol
     #[arg(short, long)]
-    protocol: Option<String>, // todo
+    protocol: Option<String>,
 
     /// Show the keybinds on their corresponding button
     #[arg(short, long, default_value_t = false)]
@@ -81,6 +81,8 @@ struct ButtonData {
     action: String,
     text: String,
     keybind: String,
+    label_x_align: Option<f32>,
+    label_y_align: Option<f32>,
 }
 
 fn main() -> glib::ExitCode {
@@ -214,11 +216,17 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
             .hexpand(true)
             .vexpand(true)
             .build();
-        let label = gtk::Label::builder()
-            .label(label_text)
-            .xalign(0.5)
-            .yalign(0.9)
-            .build();
+        let label = gtk::Label::builder().label(label_text).build();
+        if let Some(x) = button_data.label_x_align {
+            label.set_xalign(x);
+        } else {
+            label.set_xalign(0.5);
+        }
+        if let Some(y) = button_data.label_y_align {
+            label.set_yalign(y);
+        } else {
+            label.set_yalign(0.9);
+        }
         button.set_child(Some(&label));
 
         // Build action for clicking/key press
