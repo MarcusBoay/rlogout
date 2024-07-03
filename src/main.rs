@@ -112,40 +112,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .orientation(gtk::Orientation::Horizontal)
         .build();
     gtk_box.append(&grid);
-    // Build action to quit out of appliction of click/esc key press
-    let gesture = gtk::GestureClick::new();
-    gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        app.quit();
-    }));
-    gtk_box.add_controller(gesture);
-    let esc_event = gtk::EventControllerKey::new();
-    esc_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
-        if key.name().is_some_and(|k| k == "Escape") {
-            app.quit();
-        }
-    }));
-    gtk_box.add_controller(esc_event);
-
-    // Place buttons on grid
-    let buttons = build_buttons(&app, &gtk_box, &args);
-    let mut i: u32 = 0; // row
-    loop {
-        let mut break_out = false;
-        for j in 0..args.buttons_per_row {
-            let k: usize = (i * args.buttons_per_row + j).try_into().unwrap();
-            if k >= buttons.len() {
-                break_out = true;
-                break;
-            }
-            let button = &buttons[k];
-            grid.attach(button, j.try_into().unwrap(), i.try_into().unwrap(), 1, 1);
-        }
-        if break_out {
-            break;
-        }
-        i += 1;
-    }
 
     let window = gtk::ApplicationWindow::builder()
         .application(app)
@@ -182,10 +148,53 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     } else {
         window.set_fullscreened(true);
     }
+
+    // Build action to quit out of appliction of click/esc key press
+    let gesture = gtk::GestureClick::new();
+    gesture.connect_released(clone!(@weak app, @weak window => move |gesture, _, _, _| {
+        gesture.set_state(gtk::EventSequenceState::Claimed);
+        window.close();
+        app.quit();
+    }));
+    gtk_box.add_controller(gesture);
+    let esc_event = gtk::EventControllerKey::new();
+    esc_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
+        if key.name().is_some_and(|k| k == "Escape") {
+            window.close();
+            app.quit();
+        }
+    }));
+    gtk_box.add_controller(esc_event);
+
+    // Place buttons on grid
+    let buttons = build_buttons(&app, &window, &gtk_box, &args);
+    let mut i: u32 = 0; // row
+    loop {
+        let mut break_out = false;
+        for j in 0..args.buttons_per_row {
+            let k: usize = (i * args.buttons_per_row + j).try_into().unwrap();
+            if k >= buttons.len() {
+                break_out = true;
+                break;
+            }
+            let button = &buttons[k];
+            grid.attach(button, j.try_into().unwrap(), i.try_into().unwrap(), 1, 1);
+        }
+        if break_out {
+            break;
+        }
+        i += 1;
+    }
+
     window.present();
 }
 
-fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<gtk::Button> {
+fn build_buttons(
+    app: &gtk::Application,
+    window: &gtk::ApplicationWindow,
+    gtk_box: &gtk::Box,
+    args: &Args,
+) -> Vec<gtk::Button> {
     let layout_path = get_layout_path(&args);
     let layout_path = match layout_path {
         Ok(layout_path) => layout_path,
@@ -230,22 +239,26 @@ fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec
         button.set_child(Some(&label));
 
         // Build action for clicking/key press
-        let action_fn = Rc::new(move |app: &gtk::Application| {
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&button_data.action)
-                .output()
-                .expect("failed to execute process");
-            io::stdout().write_all(&output.stdout).unwrap();
-            io::stderr().write_all(&output.stderr).unwrap();
-            app.quit();
-        });
+        let action_fn = Rc::new(
+            move |app: &gtk::Application, window: &gtk::ApplicationWindow| {
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(&button_data.action)
+                    .output()
+                    .expect("failed to execute process");
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                window.close();
+                app.quit();
+            },
+        );
         let action_fn_clone = action_fn.clone();
-        button.connect_clicked(clone!(@weak app => move |_| action_fn(&app)));
+        button
+            .connect_clicked(clone!(@weak app, @weak window => move |_| action_fn(&app, &window)));
         let key_event = gtk::EventControllerKey::new();
-        key_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
+        key_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
             if key.name().is_some_and(|k| k == button_data_clone.keybind) {
-                action_fn_clone(&app);
+                action_fn_clone(&app, &window);
             }
         }));
         gtk_box.add_controller(key_event);
