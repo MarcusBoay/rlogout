@@ -7,7 +7,7 @@ use std::{
 };
 
 use gtk::{
-    gdk::Display,
+    gdk::{self, Display, Monitor},
     glib::{self, clone},
     prelude::*,
 };
@@ -70,13 +70,12 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     show_binds: bool,
 
-    /// Stops from spanning across multiple monitors
-    #[arg(short, long, default_value_t = false)]
-    no_span: bool, // todo
-
+    // /// Stops from spanning across multiple monitors
+    // #[arg(short, long, default_value_t = false)]
+    // no_span: bool,
     /// Set the primary monitor
     #[arg(short = 'P', long)]
-    primary_monitor: Option<u32>, // todo
+    primary_monitor: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -154,7 +153,12 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .child(&gtk_box)
         .decorated(false)
         .build();
-    if gtk4_layer_shell::is_supported() {
+    let display = gdk::Display::default().unwrap();
+    if gtk4_layer_shell::is_supported()
+        && (args.protocol.as_ref().is_none()
+            || (args.protocol.as_ref().is_some()
+                && args.protocol.as_ref().is_some_and(|s| s == "layer-shell")))
+    {
         window.init_layer_shell();
         window.set_layer(Layer::Overlay);
         window.set_namespace("rlogout_dialog");
@@ -163,10 +167,69 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         window.set_anchor(Edge::Right, true);
         window.set_anchor(Edge::Bottom, true);
         window.set_keyboard_mode(KeyboardMode::Exclusive);
+        window.set_exclusive_zone(-1); // makes sure that it is above waybar...
+        if let Some(mut primary_monitor) = args.primary_monitor {
+            if primary_monitor >= display.monitors().n_items() {
+                primary_monitor = display.monitors().n_items() - 1;
+            }
+            let monitor: Monitor = display
+                .monitors()
+                .item(primary_monitor)
+                .unwrap()
+                .dynamic_cast::<Monitor>()
+                .unwrap();
+            window.set_monitor(&monitor);
+        }
     } else {
         window.set_fullscreened(true);
     }
     window.present();
+
+    // // Add blank window on other monitors.
+    // let attached_monitor = display
+    //     .monitor_at_surface(&window.surface().unwrap())
+    //     .unwrap();
+    // if !args.no_span && gtk4_layer_shell::is_supported() {
+    //     for i in 0..display.monitors().n_items() {
+    //         let monitor: Monitor = display
+    //             .monitors()
+    //             .item(i)
+    //             .unwrap()
+    //             .dynamic_cast::<Monitor>()
+    //             .unwrap();
+    //         println!(
+    //             "this monitor: {:#?}, attached monitor: {:#?}",
+    //             &monitor.description(),
+    //             &attached_monitor.description()
+    //         );
+    //         if &monitor.connector() != &attached_monitor.connector()
+    //         // fixme: this seems to not work as expected??
+    //         {
+    //             let gtk_box_i = gtk::Box::builder()
+    //                 .orientation(gtk::Orientation::Horizontal)
+    //                 .build();
+    //             gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
+    //             let window_i = gtk::ApplicationWindow::builder()
+    //                 .application(app)
+    //                 .child(&gtk_box_i)
+    //                 .decorated(false)
+    //                 .build();
+    //             window_i.init_layer_shell();
+    //             window_i.set_layer(Layer::Overlay);
+    //             window_i.set_monitor(&monitor);
+    //             window_i.set_namespace("rlogout_dialog");
+    //             window_i.set_anchor(Edge::Left, true);
+    //             window_i.set_anchor(Edge::Top, true);
+    //             window_i.set_anchor(Edge::Right, true);
+    //             window_i.set_anchor(Edge::Bottom, true);
+    //             window_i.set_keyboard_mode(KeyboardMode::None);
+    //             // window_i.set_can_focus(true);
+    //             // window_i.set_
+    //             window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
+    //             window_i.present();
+    //         }
+    //     }
+    // }
 }
 
 fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<gtk::Button> {
@@ -239,19 +302,18 @@ fn get_config_path(
     err_text: &'static str,
 ) -> Result<String, &'static str> {
     let xdg_config_home = env::var("XDG_CONFIG_HOME");
-    let mut default_config_path = String::new();
-    if xdg_config_home.is_err() {
+    let mut default_config_path = if xdg_config_home.is_err() {
         let home = env::var("HOME");
         if home.is_err() {
             return Err("Cannot find environment variable: HOME");
         }
-        default_config_path = home.unwrap() + "/.config";
-    }
+        home.unwrap() + "/.config"
+    } else {
+        xdg_config_home.unwrap()
+    };
     default_config_path = default_config_path + "/rlogout/" + file;
 
-    if config_path.is_some()
-        && Path::new(format!("{}", &config_path.as_ref().unwrap()).as_str()).exists()
-    {
+    if config_path.is_some() && Path::new(&config_path.as_ref().unwrap()).exists() {
         Ok(config_path.clone().unwrap())
     } else if Path::new(&default_config_path).exists() {
         Ok(default_config_path)
