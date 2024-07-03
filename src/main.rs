@@ -70,9 +70,6 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     show_binds: bool,
 
-    // /// Stops from spanning across multiple monitors
-    // #[arg(short, long, default_value_t = false)]
-    // no_span: bool,
     /// Set the primary monitor
     #[arg(short = 'P', long)]
     primary_monitor: Option<u32>,
@@ -184,52 +181,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         window.set_fullscreened(true);
     }
     window.present();
-
-    // // Add blank window on other monitors.
-    // let attached_monitor = display
-    //     .monitor_at_surface(&window.surface().unwrap())
-    //     .unwrap();
-    // if !args.no_span && gtk4_layer_shell::is_supported() {
-    //     for i in 0..display.monitors().n_items() {
-    //         let monitor: Monitor = display
-    //             .monitors()
-    //             .item(i)
-    //             .unwrap()
-    //             .dynamic_cast::<Monitor>()
-    //             .unwrap();
-    //         println!(
-    //             "this monitor: {:#?}, attached monitor: {:#?}",
-    //             &monitor.description(),
-    //             &attached_monitor.description()
-    //         );
-    //         if &monitor.connector() != &attached_monitor.connector()
-    //         // fixme: this seems to not work as expected??
-    //         {
-    //             let gtk_box_i = gtk::Box::builder()
-    //                 .orientation(gtk::Orientation::Horizontal)
-    //                 .build();
-    //             gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
-    //             let window_i = gtk::ApplicationWindow::builder()
-    //                 .application(app)
-    //                 .child(&gtk_box_i)
-    //                 .decorated(false)
-    //                 .build();
-    //             window_i.init_layer_shell();
-    //             window_i.set_layer(Layer::Overlay);
-    //             window_i.set_monitor(&monitor);
-    //             window_i.set_namespace("rlogout_dialog");
-    //             window_i.set_anchor(Edge::Left, true);
-    //             window_i.set_anchor(Edge::Top, true);
-    //             window_i.set_anchor(Edge::Right, true);
-    //             window_i.set_anchor(Edge::Bottom, true);
-    //             window_i.set_keyboard_mode(KeyboardMode::None);
-    //             // window_i.set_can_focus(true);
-    //             // window_i.set_
-    //             window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
-    //             window_i.present();
-    //         }
-    //     }
-    // }
 }
 
 fn build_buttons(app: &gtk::Application, gtk_box: &gtk::Box, args: &Args) -> Vec<gtk::Button> {
