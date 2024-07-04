@@ -13,7 +13,7 @@ A rewrite of [wlogout](https://github.com/ArtsyMacaw/wlogout) in Rust and GTK4.
 
 ## Additional features
 - optional `label_x_align`, and `label_y_align` to manipulate the position for the label of buttons
-  (see [layout.json](imgs/showcase.png))
+  (see [layout.json](layout.json))
 
 ![label_positioning](imgs/label_positioning.png)
 
