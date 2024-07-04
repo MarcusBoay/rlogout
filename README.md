@@ -19,4 +19,4 @@ A rewrite of [wlogout](https://github.com/ArtsyMacaw/wlogout) in Rust and GTK4.
 
 ## Build
 To install the dependencies, you would need to use [nix](https://nixos.org/download/). Once you have
-that, run `nix-shell`. This will install and load all dependencies listed in `shell.nix`.
+that, run `nix-shell`. This will install and load all dependencies listed in [shell.nix](shell.nix).
