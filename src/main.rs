@@ -70,6 +70,10 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     show_binds: bool,
 
+    /// Stops from spanning across multiple monitors
+    #[arg(short, long, default_value_t = false)]
+    no_span: bool,
+
     /// Set the primary monitor
     #[arg(short = 'P', long)]
     primary_monitor: Option<u32>,
@@ -156,7 +160,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         window.close();
         app.quit();
     }));
-    gtk_box.add_controller(gesture);
+    gtk_box.add_controller(gesture.clone());
     let esc_event = gtk::EventControllerKey::new();
     esc_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
         if key.name().is_some_and(|k| k == "Escape") {
@@ -186,6 +190,49 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         i += 1;
     }
 
+    let no_span = args.no_span;
+    window.connect_realize(clone!(@weak app, @weak gesture => move |window| {
+        if no_span || window.surface().is_none() {
+            return;
+        }
+        let surface = window.surface().unwrap();
+        surface.connect_enter_monitor(clone!(@weak app => move |_, main_monitor| {
+            let display = Display::default().expect("Failed to get default display");
+            for i in 0..display.monitors().n_items() {
+                let monitor: Monitor = display
+                    .monitors()
+                    .item(i)
+                    .unwrap()
+                    .dynamic_cast::<Monitor>()
+                    .unwrap();
+                if &monitor.description() != &main_monitor.description()
+                {
+                    let gtk_box_i = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .build();
+                    // gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
+                    let window_i = gtk::ApplicationWindow::builder()
+                        .application(&app)
+                        .child(&gtk_box_i)
+                        .decorated(false)
+                        .build();
+                    window_i.init_layer_shell();
+                    window_i.set_layer(Layer::Overlay);
+                    window_i.set_monitor(&monitor);
+                    window_i.set_namespace("rlogout_dialog");
+                    window_i.set_anchor(Edge::Left, true);
+                    window_i.set_anchor(Edge::Top, true);
+                    window_i.set_anchor(Edge::Right, true);
+                    window_i.set_anchor(Edge::Bottom, true);
+                    window_i.set_keyboard_mode(KeyboardMode::None);
+                    // window_i.set_can_focus(true);
+                    // window_i.set_
+                    window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
+                    window_i.present();
+                }
+            }
+        }));
+    }));
     window.present();
 }
 
