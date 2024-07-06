@@ -63,14 +63,14 @@ struct Args {
     margin_bottom: u32,
 
     /// Use layer-shell or xdg protocol
-    #[arg(short, long)]
-    protocol: Option<String>,
+    #[arg(short, long, default_value_t = String::from("layer-shell"))]
+    protocol: String,
 
     /// Show the keybinds on their corresponding button
     #[arg(short, long, default_value_t = false)]
     show_binds: bool,
 
-    /// Stops from spanning across multiple monitors
+    /// Stops from spanning across multiple monitors (Only for layer-shell protocol)
     #[arg(short, long, default_value_t = false)]
     no_span: bool,
 
@@ -123,11 +123,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .decorated(false)
         .build();
     let display = gdk::Display::default().unwrap();
-    if gtk4_layer_shell::is_supported()
-        && (args.protocol.as_ref().is_none()
-            || (args.protocol.as_ref().is_some()
-                && args.protocol.as_ref().is_some_and(|s| s == "layer-shell")))
-    {
+    if gtk4_layer_shell::is_supported() && args.protocol.clone() == "layer-shell" {
         window.init_layer_shell();
         window.set_layer(Layer::Overlay);
         window.set_namespace("rlogout_dialog");
@@ -190,49 +186,48 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         i += 1;
     }
 
-    let no_span = args.no_span;
-    window.connect_realize(clone!(@weak app, @weak gesture => move |window| {
-        if no_span || window.surface().is_none() {
-            return;
-        }
-        let surface = window.surface().unwrap();
-        surface.connect_enter_monitor(clone!(@weak app => move |_, main_monitor| {
-            let display = Display::default().expect("Failed to get default display");
-            for i in 0..display.monitors().n_items() {
-                let monitor: Monitor = display
-                    .monitors()
-                    .item(i)
-                    .unwrap()
-                    .dynamic_cast::<Monitor>()
-                    .unwrap();
-                if &monitor.description() != &main_monitor.description()
-                {
-                    let gtk_box_i = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Horizontal)
-                        .build();
-                    // gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
-                    let window_i = gtk::ApplicationWindow::builder()
-                        .application(&app)
-                        .child(&gtk_box_i)
-                        .decorated(false)
-                        .build();
-                    window_i.init_layer_shell();
-                    window_i.set_layer(Layer::Overlay);
-                    window_i.set_monitor(&monitor);
-                    window_i.set_namespace("rlogout_dialog");
-                    window_i.set_anchor(Edge::Left, true);
-                    window_i.set_anchor(Edge::Top, true);
-                    window_i.set_anchor(Edge::Right, true);
-                    window_i.set_anchor(Edge::Bottom, true);
-                    window_i.set_keyboard_mode(KeyboardMode::None);
-                    // window_i.set_can_focus(true);
-                    // window_i.set_
-                    window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
-                    window_i.present();
-                }
+    if !args.no_span && gtk4_layer_shell::is_supported() && args.protocol == "layer-shell" {
+        window.connect_realize(clone!(@weak app/*, @weak gesture*/ => move |window| {
+            if window.surface().is_none() {
+                return;
             }
+            let surface = window.surface().unwrap();
+            surface.connect_enter_monitor(clone!(@weak app => move |_, main_monitor| {
+                let display = Display::default().expect("Failed to get default display");
+                for i in 0..display.monitors().n_items() {
+                    let monitor: Monitor = display
+                        .monitors()
+                        .item(i)
+                        .unwrap()
+                        .dynamic_cast::<Monitor>()
+                        .unwrap();
+                    if &monitor.description() != &main_monitor.description()
+                    {
+                        let gtk_box_i = gtk::Box::builder()
+                            .orientation(gtk::Orientation::Horizontal)
+                            .build();
+                        // gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
+                        let window_i = gtk::ApplicationWindow::builder()
+                            .application(&app)
+                            .child(&gtk_box_i)
+                            .decorated(false)
+                            .build();
+                        window_i.init_layer_shell();
+                        window_i.set_layer(Layer::Overlay);
+                        window_i.set_monitor(&monitor);
+                        window_i.set_namespace("rlogout_dialog");
+                        window_i.set_anchor(Edge::Left, true);
+                        window_i.set_anchor(Edge::Top, true);
+                        window_i.set_anchor(Edge::Right, true);
+                        window_i.set_anchor(Edge::Bottom, true);
+                        window_i.set_keyboard_mode(KeyboardMode::None);
+                        window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
+                        window_i.present();
+                    }
+                }
+            }));
         }));
-    }));
+    }
     window.present();
 }
 

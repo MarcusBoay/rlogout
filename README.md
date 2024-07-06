@@ -3,9 +3,6 @@ A rewrite of [wlogout](https://github.com/ArtsyMacaw/wlogout) in Rust and GTK4.
 ![showcase](imgs/showcase.png)
 
 ## Notable differences
-- Window only appears on single screen, `-n, --no-span` option is gone as a result. This is because
-  GTK4 disallows as wayland does not have global screen coordinates (which is what GTK4 is modelled
-  off of)
 - Layout file is named `layout.json` instead of `layout`
 - Layout file must be a valid json file (put the original `layout` file in an array and separate
   each entry with a comma) (see [layout.json](layout.json))
