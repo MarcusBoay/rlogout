@@ -13,7 +13,6 @@ use gtk::{
 };
 
 use clap::{arg, Parser};
-
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
@@ -81,6 +80,10 @@ struct Args {
     /// Disable mouse input
     #[arg(short, long, default_value_t = false)]
     disable_mouse_input: bool,
+
+    /// Mirror window on other monitors
+    #[arg(short = 'M', long, default_value_t = false)]
+    mirror_window: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -161,10 +164,11 @@ fn build_ui(app: &gtk::Application, args: &Args) {
             window.close();
             app.quit();
         }));
-        gtk_box.add_controller(gesture.clone());
+        gtk_box.add_controller(gesture);
     }
     let esc_event = gtk::EventControllerKey::new();
     esc_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
+        println!("ESC HELLO");
         if key.name().is_some_and(|k| k == "Escape") {
             window.close();
             app.quit();
@@ -192,13 +196,15 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         i += 1;
     }
 
+    // Add window to other monitors.
     if !args.no_span && gtk4_layer_shell::is_supported() && args.protocol == "layer-shell" {
-        window.connect_realize(clone!(@weak app/*, @weak gesture*/ => move |window| {
+        let args_clone = Rc::new(args.clone());
+        window.connect_realize(clone!(@weak app => move |window| {
             if window.surface().is_none() {
                 return;
             }
             let surface = window.surface().unwrap();
-            surface.connect_enter_monitor(clone!(@weak app => move |_, main_monitor| {
+            surface.connect_enter_monitor(clone!(@weak app, @strong args_clone => move |_, main_monitor: &Monitor| {
                 let display = Display::default().expect("Failed to get default display");
                 for i in 0..display.monitors().n_items() {
                     let monitor: Monitor = display
@@ -207,15 +213,9 @@ fn build_ui(app: &gtk::Application, args: &Args) {
                         .unwrap()
                         .dynamic_cast::<Monitor>()
                         .unwrap();
-                    if &monitor.description() != &main_monitor.description()
-                    {
-                        let gtk_box_i = gtk::Box::builder()
-                            .orientation(gtk::Orientation::Horizontal)
-                            .build();
-                        // gtk_box_i.add_controller(gesture.clone()); // fixme: why does this not work???
+                    if &monitor.description() != &main_monitor.description() {
                         let window_i = gtk::ApplicationWindow::builder()
                             .application(&app)
-                            .child(&gtk_box_i)
                             .decorated(false)
                             .build();
                         window_i.init_layer_shell();
@@ -226,8 +226,60 @@ fn build_ui(app: &gtk::Application, args: &Args) {
                         window_i.set_anchor(Edge::Top, true);
                         window_i.set_anchor(Edge::Right, true);
                         window_i.set_anchor(Edge::Bottom, true);
-                        window_i.set_keyboard_mode(KeyboardMode::None);
+                        window_i.set_keyboard_mode(KeyboardMode::OnDemand);
                         window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
+
+                        let grid_i = gtk::Grid::builder()
+                            .margin_top(args_clone.margin_top.try_into().unwrap())
+                            .margin_bottom(args_clone.margin_bottom.try_into().unwrap())
+                            .margin_start(args_clone.margin_left.try_into().unwrap())
+                            .margin_end(args_clone.margin_right.try_into().unwrap())
+                            .row_spacing(args_clone.row_spacing.try_into().unwrap())
+                            .column_spacing(args_clone.column_spacing.try_into().unwrap())
+                            .build();
+
+                        let gtk_box_i = gtk::Box::builder()
+                            .orientation(gtk::Orientation::Horizontal)
+                            .build();
+                        gtk_box_i.append(&grid_i);
+
+                        let gesture = gtk::GestureClick::new();
+                        gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
+                            gesture.set_state(gtk::EventSequenceState::Claimed);
+                            app.quit();
+                        }));
+                        gtk_box_i.add_controller(gesture);
+
+                        window_i.set_child(Some(&gtk_box_i));
+
+                        // Place buttons on grid
+                        if args_clone.mirror_window {
+                            let buttons_i = build_buttons(&app, &window_i, &gtk_box_i, &args_clone);
+                            let mut i: u32 = 0; // row
+                            loop {
+                                let mut break_out = false;
+                                for j in 0..args_clone.buttons_per_row {
+                                    let k: usize = (i * args_clone.buttons_per_row + j).try_into().unwrap();
+                                    if k >= buttons_i.len() {
+                                        break_out = true;
+                                        break;
+                                    }
+                                    let button = &buttons_i[k];
+                                    grid_i.attach(
+                                        button,
+                                        j.try_into().unwrap(),
+                                        i.try_into().unwrap(),
+                                        1,
+                                        1,
+                                    );
+                                }
+                                if break_out {
+                                    break;
+                                }
+                                i += 1;
+                            }
+                        }
+
                         window_i.present();
                     }
                 }
@@ -324,6 +376,41 @@ fn build_buttons(
     }
     buttons
 }
+
+// fn attach_button_actions() {
+//     // Build action for clicking/key press
+//     let action_fn = Rc::new(
+//         move |app: &gtk::Application, window: &gtk::ApplicationWindow| {
+//             let output = Command::new("sh")
+//                 .arg("-c")
+//                 .arg(&button_data.action)
+//                 .output()
+//                 .expect("failed to execute process");
+//             io::stdout().write_all(&output.stdout).unwrap();
+//             io::stderr().write_all(&output.stderr).unwrap();
+//             window.close();
+//             app.quit();
+//         },
+//     );
+//     let action_fn_clone1 = action_fn.clone();
+//     let action_fn_clone2 = action_fn.clone();
+//     if !args.disable_mouse_input {
+//         button
+//             .connect_clicked(clone!(@weak app, @weak window => move |_| action_fn(&app, &window)));
+//     }
+//     let key_event = gtk::EventControllerKey::new();
+//     key_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
+//         if key.name().is_some_and(|k| k == button_data_clone.keybind) {
+//             action_fn_clone1(&app, &window);
+//         }
+//     }));
+//     gtk_box.add_controller(key_event);
+
+//     // Build action for pressing 'Enter'/'Space'/?? key when button is focused
+//     button.connect_activate(clone!(@weak app, @weak window => move |_| {
+//         action_fn_clone2(&app, &window);
+//     }));
+// }
 
 fn get_config_path(
     file: &str,
