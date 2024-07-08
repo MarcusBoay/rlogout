@@ -94,6 +94,8 @@ struct ButtonData {
     keybind: String,
     label_x_align: Option<f32>,
     label_y_align: Option<f32>,
+    width: Option<i32>,
+    height: Option<i32>,
 }
 
 fn main() -> glib::ExitCode {
@@ -156,7 +158,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         window.set_fullscreened(true);
     }
 
-    // Build action to quit out of appliction of click/esc key press
+    // Build action to quit appliction on click/esc key press
     if !args.disable_mouse_input {
         let gesture = gtk::GestureClick::new();
         gesture.connect_released(clone!(@weak app, @weak window => move |gesture, _, _, _| {
@@ -168,7 +170,6 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     }
     let esc_event = gtk::EventControllerKey::new();
     esc_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
-        println!("ESC HELLO");
         if key.name().is_some_and(|k| k == "Escape") {
             window.close();
             app.quit();
@@ -243,12 +244,22 @@ fn build_ui(app: &gtk::Application, args: &Args) {
                             .build();
                         gtk_box_i.append(&grid_i);
 
-                        let gesture = gtk::GestureClick::new();
-                        gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
-                            gesture.set_state(gtk::EventSequenceState::Claimed);
-                            app.quit();
+                        // Build action to quit appliction on click/esc key press
+                        if !args_clone.disable_mouse_input {
+                            let gesture = gtk::GestureClick::new();
+                            gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
+                                gesture.set_state(gtk::EventSequenceState::Claimed);
+                                app.quit();
+                            }));
+                            gtk_box_i.add_controller(gesture);
+                        }
+                        let esc_event = gtk::EventControllerKey::new();
+                        esc_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
+                            if key.name().is_some_and(|k| k == "Escape") {
+                                app.quit();
+                            }
                         }));
-                        gtk_box_i.add_controller(gesture);
+                        gtk_box_i.add_controller(esc_event);
 
                         window_i.set_child(Some(&gtk_box_i));
 
@@ -281,6 +292,10 @@ fn build_ui(app: &gtk::Application, args: &Args) {
                         }
 
                         window_i.present();
+                        // window.grab_focus();
+                        // window.
+                        // fixme: main window must have focus.
+                        // fixme: buttons on other window have different size...
                     }
                 }
             }));
@@ -322,9 +337,18 @@ fn build_buttons(
             .margin_bottom(margin)
             .margin_start(margin)
             .margin_end(margin)
-            .hexpand(true)
-            .vexpand(true)
             .build();
+        if let Some(w) = button_data.width {
+            button.set_width_request(w)
+        } else {
+            button.set_hexpand(true);
+        }
+        if let Some(h) = button_data.height {
+            button.set_height_request(h);
+        } else {
+            button.set_vexpand(true);
+        }
+
         let label = gtk::Label::builder().label(label_text).build();
         if let Some(x) = button_data.label_x_align {
             label.set_xalign(x);
@@ -376,41 +400,6 @@ fn build_buttons(
     }
     buttons
 }
-
-// fn attach_button_actions() {
-//     // Build action for clicking/key press
-//     let action_fn = Rc::new(
-//         move |app: &gtk::Application, window: &gtk::ApplicationWindow| {
-//             let output = Command::new("sh")
-//                 .arg("-c")
-//                 .arg(&button_data.action)
-//                 .output()
-//                 .expect("failed to execute process");
-//             io::stdout().write_all(&output.stdout).unwrap();
-//             io::stderr().write_all(&output.stderr).unwrap();
-//             window.close();
-//             app.quit();
-//         },
-//     );
-//     let action_fn_clone1 = action_fn.clone();
-//     let action_fn_clone2 = action_fn.clone();
-//     if !args.disable_mouse_input {
-//         button
-//             .connect_clicked(clone!(@weak app, @weak window => move |_| action_fn(&app, &window)));
-//     }
-//     let key_event = gtk::EventControllerKey::new();
-//     key_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
-//         if key.name().is_some_and(|k| k == button_data_clone.keybind) {
-//             action_fn_clone1(&app, &window);
-//         }
-//     }));
-//     gtk_box.add_controller(key_event);
-
-//     // Build action for pressing 'Enter'/'Space'/?? key when button is focused
-//     button.connect_activate(clone!(@weak app, @weak window => move |_| {
-//         action_fn_clone2(&app, &window);
-//     }));
-// }
 
 fn get_config_path(
     file: &str,
