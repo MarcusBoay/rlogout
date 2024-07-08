@@ -77,6 +77,10 @@ struct Args {
     /// Set the primary monitor
     #[arg(short = 'P', long)]
     primary_monitor: Option<u32>,
+
+    /// Disable mouse input
+    #[arg(short, long, default_value_t = false)]
+    disable_mouse_input: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -150,13 +154,15 @@ fn build_ui(app: &gtk::Application, args: &Args) {
     }
 
     // Build action to quit out of appliction of click/esc key press
-    let gesture = gtk::GestureClick::new();
-    gesture.connect_released(clone!(@weak app, @weak window => move |gesture, _, _, _| {
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        window.close();
-        app.quit();
-    }));
-    gtk_box.add_controller(gesture.clone());
+    if !args.disable_mouse_input {
+        let gesture = gtk::GestureClick::new();
+        gesture.connect_released(clone!(@weak app, @weak window => move |gesture, _, _, _| {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            window.close();
+            app.quit();
+        }));
+        gtk_box.add_controller(gesture.clone());
+    }
     let esc_event = gtk::EventControllerKey::new();
     esc_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
         if key.name().is_some_and(|k| k == "Escape") {
@@ -294,16 +300,25 @@ fn build_buttons(
                 app.quit();
             },
         );
-        let action_fn_clone = action_fn.clone();
-        button
-            .connect_clicked(clone!(@weak app, @weak window => move |_| action_fn(&app, &window)));
+        let action_fn_clone1 = action_fn.clone();
+        let action_fn_clone2 = action_fn.clone();
+        if !args.disable_mouse_input {
+            button.connect_clicked(
+                clone!(@weak app, @weak window => move |_| action_fn(&app, &window)),
+            );
+        }
         let key_event = gtk::EventControllerKey::new();
         key_event.connect_key_released(clone!(@weak app, @weak window => move |_, key, _, _| {
             if key.name().is_some_and(|k| k == button_data_clone.keybind) {
-                action_fn_clone(&app, &window);
+                action_fn_clone1(&app, &window);
             }
         }));
         gtk_box.add_controller(key_event);
+
+        // Build action for pressing 'Enter'/'Space'/?? key when button is focused
+        button.connect_activate(clone!(@weak app, @weak window => move |_| {
+            action_fn_clone2(&app, &window);
+        }));
 
         buttons.push(button);
     }
