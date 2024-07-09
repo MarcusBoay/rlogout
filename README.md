@@ -18,6 +18,11 @@ A rewrite of [wlogout](https://github.com/ArtsyMacaw/wlogout) in Rust and GTK4.
 
 - `-d, --disable-mouse-input` option
 
+- `-a, --auto-margin`, `-H, --button-height <BUTTON_HEIGHT>`, and `-W, --button-width <BUTTON_WIDTH>`
+  options. 
+
+- `-M, --mirror-window` option. Put buttons on all windows.
+
 ## Build
 To install the dependencies, you would need to use [nix](https://nixos.org/download/). Once you have
 that, run `nix-shell`. This will install and load all dependencies listed in [shell.nix](shell.nix).
