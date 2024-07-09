@@ -234,8 +234,16 @@ fn build_ui(app: &gtk::Application, args: &Args) {
                         place_buttons(args_clone.buttons_per_row, &buttons_i, &grid_i);
                     }
 
+                    // Refocus main window after all other windows have realized
+                    window_i.connect_realize(clone!(@strong window, @weak window_i => move |_| {
+                        if let Some(surface) = window_i.surface() {
+                            surface.connect_enter_monitor(clone!(@strong window => move |_, _| {
+                                window.present();
+                            }));
+                        }
+                    }));
+
                     window_i.present();
-                    // fixme: main window must have focus.
                 }
             }
         }));
