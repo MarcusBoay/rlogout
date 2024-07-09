@@ -3,9 +3,7 @@
         "label": "lock",
         "action": "loginctl lock-session",
         "text": "Lock",
-        "keybind": "l",
-        "width": 250,
-        "height": 250
+        "keybind": "l"
     },
     {
         "label": "logout",
@@ -13,9 +11,7 @@
         "text": "Logout",
         "keybind": "e",
         "label_x_align": 0.1,
-        "label_y_align": 0.1,
-        "width": 250,
-        "height": 250
+        "label_y_align": 0.1
     },
     {
         "label": "reboot",
@@ -23,9 +19,7 @@
         "text": "Reboot",
         "keybind": "r",
         "label_x_align": 0.5,
-        "label_y_align": 0.5,
-        "width": 250,
-        "height": 250
+        "label_y_align": 0.5
     },
     {
         "label": "shutdown",
@@ -33,8 +27,6 @@
         "text": "Shutdown",
         "keybind": "s",
         "label_x_align": 1.0,
-        "label_y_align": 1.0,
-        "width": 250,
-        "height": 250
+        "label_y_align": 1.0
     }
 ]

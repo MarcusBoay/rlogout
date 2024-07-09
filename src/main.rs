@@ -45,20 +45,52 @@ struct Args {
     #[arg(short, long, default_value_t = 0)]
     margin: u32,
 
+    /// Automatically center buttons and set margins
+    #[arg(short, long, default_value_t = false)]
+    auto_margin: bool,
+
+    /// Set height of button
+    #[arg(short = 'H', long, required_if_eq("auto_margin", "true"))]
+    button_height: Option<u32>,
+
+    /// Set height of button
+    #[arg(short = 'W', long, required_if_eq("auto_margin", "true"))]
+    button_width: Option<u32>,
+
     /// Set margin for left of buttons
-    #[arg(short = 'L', long, default_value_t = 230)]
+    #[arg(
+        short = 'L',
+        long,
+        default_value_t = 230,
+        conflicts_with("auto_margin")
+    )]
     margin_left: u32,
 
     /// Set margin for right of buttons
-    #[arg(short = 'R', long, default_value_t = 230)]
+    #[arg(
+        short = 'R',
+        long,
+        default_value_t = 230,
+        conflicts_with("auto_margin")
+    )]
     margin_right: u32,
 
     /// Set margin for right of buttons
-    #[arg(short = 'T', long, default_value_t = 230)]
+    #[arg(
+        short = 'T',
+        long,
+        default_value_t = 230,
+        conflicts_with("auto_margin")
+    )]
     margin_top: u32,
 
     /// Set margin for right of buttons
-    #[arg(short = 'B', long, default_value_t = 230)]
+    #[arg(
+        short = 'B',
+        long,
+        default_value_t = 230,
+        conflicts_with("auto_margin")
+    )]
     margin_bottom: u32,
 
     /// Use layer-shell or xdg protocol
@@ -94,8 +126,6 @@ struct ButtonData {
     keybind: String,
     label_x_align: Option<f32>,
     label_y_align: Option<f32>,
-    width: Option<i32>,
-    height: Option<i32>,
 }
 
 fn main() -> glib::ExitCode {
@@ -113,13 +143,15 @@ fn main() -> glib::ExitCode {
 
 fn build_ui(app: &gtk::Application, args: &Args) {
     let grid = gtk::Grid::builder()
-        .margin_top(args.margin_top.try_into().unwrap())
-        .margin_bottom(args.margin_bottom.try_into().unwrap())
-        .margin_start(args.margin_left.try_into().unwrap())
-        .margin_end(args.margin_right.try_into().unwrap())
         .row_spacing(args.row_spacing.try_into().unwrap())
         .column_spacing(args.column_spacing.try_into().unwrap())
         .build();
+    if !args.auto_margin {
+        grid.set_margin_top(args.margin_top.try_into().unwrap());
+        grid.set_margin_bottom(args.margin_bottom.try_into().unwrap());
+        grid.set_margin_start(args.margin_left.try_into().unwrap());
+        grid.set_margin_end(args.margin_right.try_into().unwrap());
+    }
 
     let gtk_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -197,110 +229,155 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         i += 1;
     }
 
-    // Add window to other monitors.
-    if !args.no_span && gtk4_layer_shell::is_supported() && args.protocol == "layer-shell" {
-        let args_clone = Rc::new(args.clone());
-        window.connect_realize(clone!(@weak app => move |window| {
-            if window.surface().is_none() {
+    let number_of_rows =
+        buttons.len() as u32 / args.buttons_per_row + buttons.len() as u32 % args.buttons_per_row;
+
+    let args_clone = Rc::new(args.clone());
+    window.connect_realize(clone!(@weak app => move |window| {
+        if window.surface().is_none() {
+            return;
+        }
+        let surface = window.surface().unwrap();
+        surface.connect_enter_monitor(clone!(@weak app, @weak window, @weak grid, @strong args_clone => move |_, main_monitor: &Monitor| {
+            if args_clone.auto_margin {
+                let monitor_height = main_monitor.geometry().height();
+                let total_h = args_clone.button_height.unwrap() * number_of_rows;
+                let total_h = total_h + (args_clone.margin * 2 * number_of_rows);
+                let total_h = total_h + (number_of_rows - 1) * args_clone.row_spacing;
+                let margin = (monitor_height - total_h as i32) / 2;
+                grid.set_margin_top(margin);
+                grid.set_margin_bottom(margin);
+
+                let monitor_width = main_monitor.geometry().width();
+                let total_w = args_clone.button_width.unwrap() * args_clone.buttons_per_row;
+                let total_w = total_w + (args_clone.margin * 2 * args_clone.buttons_per_row);
+                let total_w = total_w + (args_clone.buttons_per_row - 1) * args_clone.column_spacing;
+                let margin = (monitor_width - total_w as i32) / 2;
+                grid.set_margin_start(margin);
+                grid.set_margin_end(margin);
+            }
+
+            if args_clone.no_span {
                 return;
             }
-            let surface = window.surface().unwrap();
-            surface.connect_enter_monitor(clone!(@weak app, @strong args_clone => move |_, main_monitor: &Monitor| {
-                let display = Display::default().expect("Failed to get default display");
-                for i in 0..display.monitors().n_items() {
-                    let monitor: Monitor = display
-                        .monitors()
-                        .item(i)
-                        .unwrap()
-                        .dynamic_cast::<Monitor>()
-                        .unwrap();
-                    if &monitor.description() != &main_monitor.description() {
-                        let window_i = gtk::ApplicationWindow::builder()
-                            .application(&app)
-                            .decorated(false)
-                            .build();
-                        window_i.init_layer_shell();
-                        window_i.set_layer(Layer::Overlay);
-                        window_i.set_monitor(&monitor);
-                        window_i.set_namespace("rlogout_dialog");
-                        window_i.set_anchor(Edge::Left, true);
-                        window_i.set_anchor(Edge::Top, true);
-                        window_i.set_anchor(Edge::Right, true);
-                        window_i.set_anchor(Edge::Bottom, true);
-                        window_i.set_keyboard_mode(KeyboardMode::OnDemand);
-                        window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
+            if !gtk4_layer_shell::is_supported() || args_clone.protocol != "layer-shell" {
+                return;
+            }
 
-                        let grid_i = gtk::Grid::builder()
-                            .margin_top(args_clone.margin_top.try_into().unwrap())
-                            .margin_bottom(args_clone.margin_bottom.try_into().unwrap())
-                            .margin_start(args_clone.margin_left.try_into().unwrap())
-                            .margin_end(args_clone.margin_right.try_into().unwrap())
-                            .row_spacing(args_clone.row_spacing.try_into().unwrap())
-                            .column_spacing(args_clone.column_spacing.try_into().unwrap())
-                            .build();
+            // Add window to other monitors.
+            let display = Display::default().expect("Failed to get default display");
+            for i in 0..display.monitors().n_items() {
+                let monitor: Monitor = display
+                    .monitors()
+                    .item(i)
+                    .unwrap()
+                    .dynamic_cast::<Monitor>()
+                    .unwrap();
+                if &monitor.description() != &main_monitor.description() {
+                    let window_i = gtk::ApplicationWindow::builder()
+                        .application(&app)
+                        .decorated(false)
+                        .build();
+                    window_i.init_layer_shell();
+                    window_i.set_layer(Layer::Overlay);
+                    window_i.set_monitor(&monitor);
+                    window_i.set_namespace("rlogout_dialog");
+                    window_i.set_anchor(Edge::Left, true);
+                    window_i.set_anchor(Edge::Top, true);
+                    window_i.set_anchor(Edge::Right, true);
+                    window_i.set_anchor(Edge::Bottom, true);
+                    window_i.set_keyboard_mode(KeyboardMode::Exclusive);
+                    window_i.set_exclusive_zone(-1); // makes sure that it is above waybar...
 
-                        let gtk_box_i = gtk::Box::builder()
-                            .orientation(gtk::Orientation::Horizontal)
-                            .build();
-                        gtk_box_i.append(&grid_i);
+                    let grid_i = gtk::Grid::builder()
+                        .row_spacing(args_clone.row_spacing.try_into().unwrap())
+                        .column_spacing(args_clone.column_spacing.try_into().unwrap())
+                        .build();
+                    if !args_clone.auto_margin {
+                        grid_i.set_margin_top(args_clone.margin_top.try_into().unwrap());
+                        grid_i.set_margin_bottom(args_clone.margin_bottom.try_into().unwrap());
+                        grid_i.set_margin_start(args_clone.margin_left.try_into().unwrap());
+                        grid_i.set_margin_end(args_clone.margin_right.try_into().unwrap());
+                    } else {
+                        let monitor_height = monitor.geometry().height();
+                        let total_h = args_clone.button_height.unwrap() * number_of_rows;
+                        let total_h = total_h + (args_clone.margin * 2 * number_of_rows);
+                        let total_h = total_h + (number_of_rows - 1) * args_clone.row_spacing;
+                        let margin = (monitor_height - total_h as i32) / 2;
+                        grid_i.set_margin_top(margin);
+                        grid_i.set_margin_bottom(margin);
 
-                        // Build action to quit appliction on click/esc key press
-                        if !args_clone.disable_mouse_input {
-                            let gesture = gtk::GestureClick::new();
-                            gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
-                                gesture.set_state(gtk::EventSequenceState::Claimed);
-                                app.quit();
-                            }));
-                            gtk_box_i.add_controller(gesture);
-                        }
-                        let esc_event = gtk::EventControllerKey::new();
-                        esc_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
-                            if key.name().is_some_and(|k| k == "Escape") {
-                                app.quit();
-                            }
+                        let monitor_width = monitor.geometry().width();
+                        let total_w = args_clone.button_width.unwrap() * args_clone.buttons_per_row;
+                        let total_w = total_w + (args_clone.margin * 2 * args_clone.buttons_per_row);
+                        let total_w = total_w + (args_clone.buttons_per_row - 1) * args_clone.column_spacing;
+                        let margin = (monitor_width - total_w as i32) / 2;
+                        grid_i.set_margin_start(margin);
+                        grid_i.set_margin_end(margin);
+                    }
+
+                    let gtk_box_i = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .build();
+                    gtk_box_i.append(&grid_i);
+
+                    // Build action to quit appliction on click/esc key press
+                    if !args_clone.disable_mouse_input {
+                        let gesture = gtk::GestureClick::new();
+                        gesture.connect_released(clone!(@weak app => move |gesture, _, _, _| {
+                            gesture.set_state(gtk::EventSequenceState::Claimed);
+                            app.quit();
                         }));
-                        gtk_box_i.add_controller(esc_event);
+                        gtk_box_i.add_controller(gesture);
+                    }
+                    let esc_event = gtk::EventControllerKey::new();
+                    esc_event.connect_key_released(clone!(@weak app => move |_, key, _, _| {
+                        if key.name().is_some_and(|k| k == "Escape") {
+                            app.quit();
+                        }
+                    }));
+                    gtk_box_i.add_controller(esc_event);
 
-                        window_i.set_child(Some(&gtk_box_i));
+                    window_i.set_child(Some(&gtk_box_i));
 
-                        // Place buttons on grid
-                        if args_clone.mirror_window {
-                            let buttons_i = build_buttons(&app, &window_i, &gtk_box_i, &args_clone);
-                            let mut i: u32 = 0; // row
-                            loop {
-                                let mut break_out = false;
-                                for j in 0..args_clone.buttons_per_row {
-                                    let k: usize = (i * args_clone.buttons_per_row + j).try_into().unwrap();
-                                    if k >= buttons_i.len() {
-                                        break_out = true;
-                                        break;
-                                    }
-                                    let button = &buttons_i[k];
-                                    grid_i.attach(
-                                        button,
-                                        j.try_into().unwrap(),
-                                        i.try_into().unwrap(),
-                                        1,
-                                        1,
-                                    );
-                                }
-                                if break_out {
+                    // Place buttons on grid
+                    if args_clone.mirror_window {
+                        let buttons_i = build_buttons(&app, &window_i, &gtk_box_i, &args_clone);
+                        let mut i: u32 = 0; // row
+                        loop {
+                            let mut break_out = false;
+                            for j in 0..args_clone.buttons_per_row {
+                                let k: usize = (i * args_clone.buttons_per_row + j).try_into().unwrap();
+                                if k >= buttons_i.len() {
+                                    break_out = true;
                                     break;
                                 }
-                                i += 1;
+                                let button = &buttons_i[k];
+                                grid_i.attach(
+                                    button,
+                                    j.try_into().unwrap(),
+                                    i.try_into().unwrap(),
+                                    1,
+                                    1,
+                                );
                             }
+                            if break_out {
+                                break;
+                            }
+                            i += 1;
                         }
-
-                        window_i.present();
-                        // window.grab_focus();
-                        // window.
-                        // fixme: main window must have focus.
-                        // fixme: buttons on other window have different size...
                     }
+
+                    window_i.present();
+                    // window.grab_focus();
+                    // window.
+                    // fixme: main window must have focus.
+                    // fixme: buttons on other window have different size...
                 }
-            }));
+            }
         }));
-    }
+    }));
+
     window.present();
 }
 
@@ -338,13 +415,13 @@ fn build_buttons(
             .margin_start(margin)
             .margin_end(margin)
             .build();
-        if let Some(w) = button_data.width {
-            button.set_width_request(w)
+        if let Some(w) = args.button_width {
+            button.set_width_request(w.try_into().unwrap());
         } else {
             button.set_hexpand(true);
         }
-        if let Some(h) = button_data.height {
-            button.set_height_request(h);
+        if let Some(h) = args.button_height {
+            button.set_height_request(h.try_into().unwrap());
         } else {
             button.set_vexpand(true);
         }
