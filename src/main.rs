@@ -159,7 +159,7 @@ fn build_ui(app: &gtk::Application, args: &Args) {
         .decorated(false)
         .build();
     let display = gdk::Display::default().expect("Failed to get default display");
-    if gtk4_layer_shell::is_supported() && args.protocol.clone() == "layer-shell" {
+    if gtk4_layer_shell::is_supported() && args.protocol == "layer-shell" {
         if let Some(mut primary_monitor) = args.primary_monitor {
             if primary_monitor >= display.monitors().n_items() {
                 primary_monitor = display.monitors().n_items() - 1;

@@ -1,0 +1,86 @@
+@import '/home/jenny/.config/wlogout/macchiato.css';
+
+* {
+    background-image: none;
+    box-shadow: none;
+}
+
+window {
+    background: @mantle;
+    opacity: 0.9;
+}
+
+button {
+    border-radius: 16px;
+    text-decoration-color: #FFFFFF;
+    color: #FFFFFF;
+    background-color: transparent;
+    border-style: solid;
+    border-width: 0px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 25%;
+    margin: 8px;
+    transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+button:focus,
+button:hover {
+    background-size: 45%;
+    background-color: #b7bdf8;
+    border-radius: 16px;
+    transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+
+button:focus label,
+button:hover label {
+    color: @surface1;
+    transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+button.active {
+    border-style: solid;
+    border-width: 0px;
+}
+
+#lock {
+    background-image: url("./icons/lock.png");
+}
+
+#lock:hover {
+    background-image: url("./icons/lock-hover.png");
+
+}
+
+#shutdown {
+    background-image: url("./icons/power.png");
+}
+
+#shutdown:hover {
+    background-image: url("./icons/power-hover.png");
+}
+
+#logout {
+    background-image: url("./icons/logout.png");
+}
+
+#logout:hover {
+    background-image: url("./icons/logout-hover.png");
+}
+
+#reboot {
+    background-image: url("./icons/restart.png");
+}
+
+#reboot:hover {
+    background-image: url("./icons/restart-hover.png");
+}
+
+#hibernate {
+    background-image: url("./icons/hibernate.png");
+}
+
+#hibernate:hover {
+    background-image: url("./icons/hibernate-hover.png");
+}
